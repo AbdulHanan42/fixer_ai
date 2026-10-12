@@ -91,6 +91,7 @@ async def search_nearby_mechanics(
     latitude: float = Query(..., ge=-90, le=90, description="Customer's latitude"),
     longitude: float = Query(..., ge=-180, le=180, description="Customer's longitude"),
     radius_km: float = Query(50, ge=1, le=200, description="Search radius in kilometers"),
+    issue: Optional[str] = Query(None, max_length=2000, description="Repair issue used to prioritize matching mechanic services"),
 ):
     """
     Search for nearby mechanics using PostGIS.
@@ -99,7 +100,20 @@ async def search_nearby_mechanics(
     - **longitude**: Customer's current longitude
     - **radius_km**: Search radius in kilometers (default: 50km, max: 200km)
     """
-    return MechanicProfileService.search_nearby(db, latitude, longitude, radius_km)
+    return MechanicProfileService.search_nearby(db, latitude, longitude, radius_km, issue)
+
+
+@router.get("/directory", response_model=List[MechanicProfileResponse])
+async def search_mechanic_directory(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    city: Optional[str] = Query(None, min_length=2, max_length=100),
+    issue: Optional[str] = Query(None, max_length=2000),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+):
+    """Browse verified mechanic shops by city, without requiring device GPS."""
+    return MechanicProfileService.search_directory(db, city, skip, limit, issue)
 
 
 @router.get("", response_model=List[MechanicProfileResponse])

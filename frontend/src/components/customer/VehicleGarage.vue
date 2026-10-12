@@ -1,7 +1,7 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 
-defineProps({
+const props = defineProps({
   vehicles: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   saving: { type: Boolean, default: false },
@@ -23,6 +23,10 @@ function reset() {
   form.year = new Date().getFullYear()
   showForm.value = false
 }
+
+watch(() => props.saving, (saving, wasSaving) => {
+  if (wasSaving && !saving && !props.error) reset()
+})
 </script>
 
 <template>

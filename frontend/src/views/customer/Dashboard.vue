@@ -9,7 +9,6 @@ import ReviewModal from '@/components/customer/ReviewModal.vue'
 import http from '@/api/http.js'
 import { useNotifications } from '@/composables/useNotifications.js'
 import { useLocation } from '@/composables/useLocation.js'
-import { locationService } from '@/services/location.service.js'
 import { mechanicService } from '@/services/mechanic.service.js'
 import { repairService } from '@/services/repair.service.js'
 import { vehicleService } from '@/services/vehicle.service.js'
@@ -20,6 +19,8 @@ const route = useRoute()
 
 const description = ref('')
 const mechanics = ref([])
+const cityQuery = ref('')
+const directorySearched = ref(false)
 const vehicles = ref([])
 const selectedVehicleId = ref('')
 const vehiclesLoading = ref(true)
@@ -42,11 +43,7 @@ watch(() => route.query.chat, (requestId) => {
 
 async function findNearbyMechanics() {
   searchError.value = ''
-  if (description.value.trim().length < 10) {
-    searchError.value = 'Please describe the problem in at least 10 characters before searching.'
-    return
-  }
-
+  cityQuery.value = ''
   isSearching.value = true
   await getCurrentLocation()
   if (!location.value) {
@@ -60,7 +57,9 @@ async function findNearbyMechanics() {
       latitude: location.value.latitude,
       longitude: location.value.longitude,
       radius_km: 50,
+      issue: description.value.trim(),
     })
+    directorySearched.value = true
   } catch (error) {
     searchError.value = error.message || 'Could not load nearby mechanics.'
   } finally {
@@ -68,22 +67,61 @@ async function findNearbyMechanics() {
   }
 }
 
+async function searchMechanicsByCity() {
+  const city = cityQuery.value.trim()
+  searchError.value = ''
+  if (city.length < 2) {
+    searchError.value = 'Enter at least two characters for a city name.'
+    return
+  }
+  isSearching.value = true
+  directorySearched.value = true
+  location.value = null
+  try {
+      mechanics.value = await mechanicService.searchDirectory(city, description.value.trim())
+  } catch (error) {
+    mechanics.value = []
+    searchError.value = error.message || `Could not find mechanics in ${city}.`
+  } finally {
+    isSearching.value = false
+  }
+}
+
+async function browseVerifiedMechanics() {
+  searchError.value = ''
+  cityQuery.value = ''
+  isSearching.value = true
+  directorySearched.value = true
+  location.value = null
+  try {
+    mechanics.value = await mechanicService.searchDirectory('', description.value.trim())
+  } catch (error) {
+    mechanics.value = []
+    searchError.value = error.message || 'Could not load mechanic profiles.'
+  } finally {
+    isSearching.value = false
+  }
+}
+
 async function requestRepair(mechanic) {
-  if (!location.value || description.value.trim().length < 10) {
-    showError('Describe the problem and search nearby before requesting a repair.')
+  if (description.value.trim().length < 10) {
+    showError('Describe the problem in at least 10 characters before requesting a repair.')
     return
   }
 
   busyMechanicId.value = mechanic.id
   aiDiagnosis.value = null
   try {
-    const created = await repairService.createRepairRequest({
+    const repairData = {
       description: description.value.trim(),
-      latitude: location.value.latitude,
-      longitude: location.value.longitude,
       mechanic_id: mechanic.id,
       vehicle_id: selectedVehicleId.value || null,
-    })
+    }
+    if (location.value) {
+      repairData.latitude = location.value.latitude
+      repairData.longitude = location.value.longitude
+    }
+    const created = await repairService.createRepairRequest(repairData)
     latestRequest.value = created
     recentRequests.value = [created, ...recentRequests.value]
     showSuccess(`Repair request sent to ${mechanic.shop_name}.`)
@@ -206,11 +244,24 @@ onUnmounted(() => window.clearInterval(historyRefreshTimer))
     <section>
       <p class="text-sm font-semibold uppercase tracking-wider text-blue-600">Customer workspace</p>
       <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Find help for your car</h1>
-      <p class="mt-3 max-w-2xl text-slate-600">Tell us what’s happening, share your location, and send a repair request to a nearby mechanic.</p>
+      <p class="mt-3 max-w-2xl text-slate-600">Describe the issue and browse verified repair shops by city or nearby location.</p>
     </section>
 
     <VehicleGarage v-model:selected-vehicle-id="selectedVehicleId" :vehicles="vehicles" :loading="vehiclesLoading"
       :saving="vehicleSaving" :error="vehicleError" @create="createVehicle" @remove="removeVehicle" />
+
+    <section class="rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm sm:p-6">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div><p class="text-[11px] font-bold uppercase tracking-[.2em] text-blue-700">Browse the network</p><h2 class="mt-1 text-lg font-bold text-slate-900">Find a registered mechanic by city</h2><p class="mt-1 text-sm text-slate-500">Search registered shop profiles even when you prefer not to share device location.</p></div>
+        <form class="flex w-full flex-col gap-2 sm:flex-row lg:max-w-xl" @submit.prevent="searchMechanicsByCity">
+          <label for="mechanic-city-search" class="sr-only">City name</label>
+          <input id="mechanic-city-search" v-model.trim="cityQuery" type="search" minlength="2" maxlength="100" placeholder="Enter a city, e.g. Lahore" class="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-50" />
+          <button type="submit" :disabled="isSearching || cityQuery.trim().length < 2" class="rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{{ isSearching ? 'Searching...' : 'Search city' }}</button>
+          <button type="button" :disabled="isSearching" class="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 disabled:opacity-50" @click="browseVerifiedMechanics">Browse all</button>
+          <button type="button" :disabled="isSearching || isLocating" class="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 disabled:opacity-50" @click="findNearbyMechanics">{{ isLocating ? 'Locating...' : 'Near me' }}</button>
+        </form>
+      </div>
+    </section>
 
     <div class="grid items-start gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <div class="space-y-5">
@@ -222,7 +273,7 @@ onUnmounted(() => window.clearInterval(historyRefreshTimer))
         </div>
       </div>
 
-      <MechanicList :location="location" :mechanics="mechanics" :loading="isSearching || isLocating"
+        <MechanicList :location="location" :mechanics="mechanics" :loading="isSearching || isLocating" :searched="directorySearched" :city="cityQuery"
         :error="searchError" :busy-mechanic-id="busyMechanicId"
         :can-request="description.trim().length >= 10" @request-repair="requestRepair" @retry="findNearbyMechanics" />
     </div>

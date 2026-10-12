@@ -1,8 +1,15 @@
+import re
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
+from sqlalchemy import func, or_, text
 
 from app.db.models import MechanicProfile, Service, MechanicService
+
+
+def _issue_search_words(issue: str | None) -> list[str]:
+    stop_words = {"about", "after", "been", "from", "have", "into", "that", "there", "this", "when", "with", "your", "car", "the", "and", "for"}
+    words = re.findall(r"[a-z0-9]+", (issue or "").lower())
+    return list(dict.fromkeys(word for word in words if len(word) >= 3 and word not in stop_words))[:12]
 
 
 class MechanicRepository:
@@ -35,8 +42,9 @@ class MechanicRepository:
 
     @staticmethod
     def search_nearby(
-        db: Session, latitude: float, longitude: float, radius_km: float = 50
-    ) -> List[MechanicProfile]:
+        db: Session, latitude: float, longitude: float, radius_km: float = 50,
+        issue: str | None = None,
+    ) -> List[tuple[MechanicProfile, bool]]:
         """
         Search for mechanics within a radius using PostGIS.
 
@@ -49,30 +57,94 @@ class MechanicRepository:
         Returns:
             List of mechanic profiles within the radius
         """
-        # Create a point from the customer's location
-        customer_point = ST_MakePoint(longitude, latitude)
-
-        # Query mechanics within radius using ST_DWithin
+        # location is a PostGIS geography column, so cast the customer point
+        # to geography before distance operations (and keep distances in meters).
         radius_meters = radius_km * 1000
+        point = "CAST(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326) AS geography)"
+        distance = text(f"ST_Distance(location, {point})")
         query = (
             db.query(MechanicProfile)
-            .filter(MechanicProfile.is_online.is_(True))
-            .filter(
-                text("ST_DWithin(location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius)")
-            )
+            .filter(text(f"ST_DWithin(location, {point}, :radius)"))
             .params(lon=longitude, lat=latitude, radius=radius_meters)
-            .order_by(
-                text("ST_DistanceSphere(location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))")
-            )
-            .params(lon=longitude, lat=latitude)
         )
 
-        return query.all()
+        words = _issue_search_words(issue)
+        if words:
+            service_match = or_(
+                *[
+                    column.ilike(f"%{word}%")
+                    for word in words
+                    for column in (Service.name, Service.category)
+                ]
+            )
+            has_matching_service = (
+                db.query(MechanicService.id)
+                .join(Service, MechanicService.service_id == Service.id)
+                .filter(MechanicService.mechanic_id == MechanicProfile.id)
+                .filter(service_match)
+                .exists()
+            )
+            available = (MechanicProfile.is_online.is_(True) & MechanicProfile.is_verified.is_(True))
+            rows = query.add_columns(has_matching_service.label("issue_match")).order_by(
+                available.desc(), has_matching_service.desc(), MechanicProfile.is_online.desc(),
+                MechanicProfile.is_verified.desc(), distance
+            ).all()
+            return [(profile, bool(issue_match)) for profile, issue_match in rows]
+
+        return [
+            (profile, False)
+            for profile in query.order_by(
+                (MechanicProfile.is_online.is_(True) & MechanicProfile.is_verified.is_(True)).desc(),
+                MechanicProfile.is_online.desc(), MechanicProfile.is_verified.desc(), distance
+            ).all()
+        ]
 
     @staticmethod
     def get_all(db: Session, skip: int = 0, limit: int = 100) -> List[MechanicProfile]:
         """Get all mechanic profiles with pagination."""
         return db.query(MechanicProfile).offset(skip).limit(limit).all()
+
+    @staticmethod
+    def search_directory(
+        db: Session, city: str | None = None, skip: int = 0, limit: int = 50,
+        issue: str | None = None,
+    ) -> List[tuple[MechanicProfile, bool]]:
+        """Return verified shop profiles filtered by city and prioritized by issue."""
+        query = db.query(MechanicProfile)
+        if city and city.strip():
+            query = query.filter(MechanicProfile.city.ilike(f"%{city.strip()}%"))
+        words = _issue_search_words(issue)
+        if words:
+            service_match = or_(
+                *[
+                    column.ilike(f"%{word}%")
+                    for word in words
+                    for column in (Service.name, Service.category)
+                ]
+            )
+            has_matching_service = (
+                db.query(MechanicService.id)
+                .join(Service, MechanicService.service_id == Service.id)
+                .filter(MechanicService.mechanic_id == MechanicProfile.id)
+                .filter(service_match)
+                .exists()
+            )
+            available = (MechanicProfile.is_online.is_(True) & MechanicProfile.is_verified.is_(True))
+            rows = query.add_columns(has_matching_service.label("issue_match")).order_by(
+                available.desc(), has_matching_service.desc(),
+                MechanicProfile.is_verified.desc(),
+                MechanicProfile.is_online.desc(),
+                MechanicProfile.average_rating.desc(),
+                MechanicProfile.shop_name.asc(),
+            ).offset(skip).limit(limit).all()
+            return [(profile, bool(issue_match)) for profile, issue_match in rows]
+
+        rows = query.order_by(
+            (MechanicProfile.is_online.is_(True) & MechanicProfile.is_verified.is_(True)).desc(),
+            MechanicProfile.is_verified.desc(), MechanicProfile.is_online.desc(),
+            MechanicProfile.average_rating.desc(), MechanicProfile.shop_name.asc()
+        ).offset(skip).limit(limit).all()
+        return [(profile, False) for profile in rows]
 
     @staticmethod
     def get_verified(db: Session) -> List[MechanicProfile]:

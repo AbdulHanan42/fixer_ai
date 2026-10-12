@@ -67,6 +67,7 @@ class MechanicProfile(Base):
     shop_name: Mapped[str] = mapped_column(String)
     location = mapped_column(Geography(geometry_type='POINT', srid=4326))
     address: Mapped[str] = mapped_column(String)
+    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     is_online: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     average_rating: Mapped[float] = mapped_column(Float, default=0.0)

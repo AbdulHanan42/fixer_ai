@@ -37,6 +37,13 @@ export const mechanicService = {
     return http.get('/mechanics/search', { params })
   },
 
+  searchDirectory(city, issue = '') {
+    const params = {}
+    if (city) params.city = city
+    if (issue) params.issue = issue
+    return http.get('/mechanics/directory', { params })
+  },
+
   getMechanicReviews(id) {
     return http.get(`/reviews/mechanic/${id}`)
   },

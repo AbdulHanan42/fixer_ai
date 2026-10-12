@@ -13,7 +13,7 @@ const props = defineProps({
 
 const emit = defineEmits(['save-profile', 'add-service', 'update-service', 'remove-service'])
 
-const form = reactive({ shop_name: '', address: '', latitude: '', longitude: '' })
+const form = reactive({ shop_name: '', address: '', city: '', latitude: '', longitude: '' })
 const selectedServiceId = defineModel('selectedServiceId', { type: String, default: '' })
 const newServicePrice = defineModel('newServicePrice', { type: String, default: '' })
 const servicePrices = reactive({})
@@ -22,6 +22,7 @@ const { location, error: locationError, isLoading: isLocating, getCurrentLocatio
 watch(() => props.profile, (profile) => {
   form.shop_name = profile?.shop_name || ''
   form.address = profile?.address || ''
+  form.city = profile?.city || ''
   form.latitude = profile?.latitude ?? ''
   form.longitude = profile?.longitude ?? ''
 }, { immediate: true })
@@ -46,6 +47,7 @@ function submitProfile() {
   emit('save-profile', {
     shop_name: form.shop_name.trim(),
     address: form.address.trim(),
+    city: form.city.trim(),
     latitude: Number(form.latitude),
     longitude: Number(form.longitude),
   })
@@ -74,6 +76,12 @@ function addService() {
         <label for="shop-address" class="mb-1.5 block text-sm font-medium text-slate-700">Shop address</label>
         <textarea id="shop-address" v-model.trim="form.address" rows="2" required minlength="5" maxlength="500"
           class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"></textarea>
+      </div>
+      <div class="sm:col-span-2">
+        <label for="shop-city" class="mb-1.5 block text-sm font-medium text-slate-700">City</label>
+        <input id="shop-city" v-model.trim="form.city" required minlength="2" maxlength="100" autocomplete="address-level2" placeholder="e.g. Lahore"
+          class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+        <p class="mt-1 text-xs text-slate-500">Customers can find your verified shop by searching this city.</p>
       </div>
       <div>
         <label for="shop-latitude" class="mb-1.5 block text-sm font-medium text-slate-700">Latitude</label>

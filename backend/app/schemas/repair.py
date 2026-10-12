@@ -8,8 +8,8 @@ class RepairRequestCreate(BaseModel):
     vehicle_id: Optional[str] = None
     mechanic_id: Optional[str] = None
     description: str = Field(..., min_length=10, max_length=2000)
-    latitude: float = Field(..., ge=-90, le=90)
-    longitude: float = Field(..., ge=-180, le=180)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
 
 
 class RepairRequestUpdate(BaseModel):

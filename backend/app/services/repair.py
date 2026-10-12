@@ -31,6 +31,8 @@ class RepairRequestService:
         db: Session, customer_id: str, request_data: RepairRequestCreate
     ) -> RepairRequestResponse:
         """Create a new repair request."""
+        if (request_data.latitude is None) != (request_data.longitude is None):
+            raise ValueError("Latitude and longitude must be provided together")
         if request_data.vehicle_id:
             vehicle = VehicleRepository.get_by_id(db, request_data.vehicle_id)
             if not vehicle or str(vehicle.customer_id) != str(customer_id):
@@ -45,10 +47,12 @@ class RepairRequestService:
                 raise ValueError("Selected mechanic is currently offline")
 
         # Create location point from lat/lon
-        location = WKTElement(
-            f"POINT({request_data.longitude} {request_data.latitude})",
-            srid=4326,
-        )
+        location = None
+        if request_data.latitude is not None and request_data.longitude is not None:
+            location = WKTElement(
+                f"POINT({request_data.longitude} {request_data.latitude})",
+                srid=4326,
+            )
 
         request = RepairRequest(
             customer_id=customer_id,

@@ -49,6 +49,7 @@ class MechanicProfileService:
             user_id=user_id,
             shop_name=profile_data.shop_name,
             address=profile_data.address,
+            city=profile_data.city.strip(),
             location=location,
             is_verified=False,
             average_rating=0.0,
@@ -81,6 +82,8 @@ class MechanicProfileService:
             profile.shop_name = profile_data.shop_name
         if profile_data.address is not None:
             profile.address = profile_data.address
+        if profile_data.city is not None:
+            profile.city = profile_data.city.strip()
         if profile_data.is_online is not None:
             profile.is_online = profile_data.is_online
         if profile_data.latitude is not None and profile_data.longitude is not None:
@@ -94,17 +97,32 @@ class MechanicProfileService:
 
     @staticmethod
     def search_nearby(
-        db: Session, latitude: float, longitude: float, radius_km: float = 50
+        db: Session, latitude: float, longitude: float, radius_km: float = 50,
+        issue: str | None = None,
     ) -> List[MechanicProfileResponse]:
         """Search for nearby mechanics."""
-        profiles = MechanicRepository.search_nearby(db, latitude, longitude, radius_km)
-        return [MechanicProfileService._to_response(db, p) for p in profiles]
+        matches = MechanicRepository.search_nearby(db, latitude, longitude, radius_km, issue)
+        return [
+            MechanicProfileService._to_response(db, profile).model_copy(update={"issue_match": issue_match})
+            for profile, issue_match in matches
+        ]
 
     @staticmethod
     def get_all(db: Session, skip: int = 0, limit: int = 100) -> List[MechanicProfileResponse]:
         """Get all mechanic profiles."""
         profiles = MechanicRepository.get_all(db, skip, limit)
         return [MechanicProfileService._to_response(db, p) for p in profiles]
+
+    @staticmethod
+    def search_directory(
+        db: Session, city: str | None = None, skip: int = 0, limit: int = 50,
+        issue: str | None = None,
+    ) -> List[MechanicProfileResponse]:
+        matches = MechanicRepository.search_directory(db, city, skip, limit, issue)
+        return [
+            MechanicProfileService._to_response(db, profile).model_copy(update={"issue_match": issue_match})
+            for profile, issue_match in matches
+        ]
 
     @staticmethod
     def _to_response(db: Session, profile: MechanicProfile) -> MechanicProfileResponse:
@@ -131,6 +149,7 @@ class MechanicProfileService:
             user_id=str(profile.user_id),
             shop_name=profile.shop_name,
             address=profile.address,
+            city=profile.city,
             latitude=latitude,
             longitude=longitude,
             is_verified=profile.is_verified,
