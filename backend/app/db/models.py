@@ -1,5 +1,6 @@
 import uuid
 import enum
+from typing import Optional
 from sqlalchemy import String, Boolean, ForeignKey, Float, Text, Enum as SQLEnum, Integer, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,6 +20,14 @@ class RequestStatus(str, enum.Enum):
     completed = "completed"
     cancelled = "cancelled"
 
+class NotificationType(str, enum.Enum):
+    new_repair_request = "new_repair_request"
+    request_accepted = "request_accepted"
+    request_rejected = "request_rejected"
+    status_changed = "status_changed"
+    new_message = "new_message"
+    repair_completed = "repair_completed"
+
 class User(Base):
     __tablename__ = "users"
 
@@ -35,6 +44,7 @@ class User(Base):
     mechanic_profile = relationship("MechanicProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     repair_requests = relationship("RepairRequest", foreign_keys="[RepairRequest.customer_id]", back_populates="customer")
     messages = relationship("Message", back_populates="sender")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     reviews_given = relationship("Review", foreign_keys="[Review.customer_id]", back_populates="customer")
 
 class Vehicle(Base):
@@ -151,3 +161,18 @@ class Review(Base):
     repair_request = relationship("RepairRequest", back_populates="review")
     customer = relationship("User", foreign_keys=[customer_id], back_populates="reviews_given")
     mechanic = relationship("MechanicProfile", foreign_keys=[mechanic_id], back_populates="reviews_received")
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    type: Mapped[NotificationType] = mapped_column(SQLEnum(NotificationType, name="notificationtype"), index=True)
+    title: Mapped[str] = mapped_column(String)
+    content: Mapped[str] = mapped_column(Text)
+    reference_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    reference_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    user = relationship("User", back_populates="notifications")
