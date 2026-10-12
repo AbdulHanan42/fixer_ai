@@ -12,7 +12,7 @@ load_dotenv()
 
 # Import Base and models
 from app.db.base import Base
-from app.db.models import User, Vehicle, MechanicProfile, Service, MechanicService, RepairRequest, AIDiagnosis, RequestImage, Message, Review
+from app.db.models import User, Vehicle, MechanicProfile, Service, MechanicService, RepairRequest, AIDiagnosis, RequestImage, Message, Review, Notification
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

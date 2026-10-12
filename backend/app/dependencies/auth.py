@@ -69,16 +69,21 @@ async def get_current_mechanic(
     return current_user
 
 
-async def get_current_admin(
+async def get_current_admin_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    """Dependency to ensure current user is an admin."""
-    if current_user.role != UserRole.admin:
+    """Dependency to strictly ensure current user is an admin."""
+    role_val = current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role)
+    if role_val != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied. Admin role required.",
         )
     return current_user
+
+
+# Alias for backwards compatibility
+get_current_admin = get_current_admin_user
 
 
 async def require_role(required_role: UserRole):

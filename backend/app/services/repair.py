@@ -16,6 +16,7 @@ from app.schemas.repair import (
     AIDiagnosisResponse,
     RequestImageResponse,
 )
+from app.services.notification import NotificationService
 
 
 class RepairRequestService:
@@ -41,6 +42,7 @@ class RepairRequestService:
         )
 
         created_request = RepairRequestRepository.create(db, request)
+        NotificationService.notify_new_repair_request(db, created_request)
         return RepairRequestService._to_response(created_request)
 
     @staticmethod
@@ -79,6 +81,8 @@ class RepairRequestService:
         if request.status == RequestStatus.cancelled:
             raise ValueError("Cannot update a cancelled request")
 
+        old_status = request.status
+
         # If assigning to mechanic
         if status_data.status == RequestStatus.accepted:
             if request.mechanic_id and request.mechanic_id != mechanic_id:
@@ -87,6 +91,28 @@ class RepairRequestService:
 
         request.status = status_data.status
         updated_request = RepairRequestRepository.update(db, request)
+
+        # Dispatch notifications based on status change
+        if updated_request.status == RequestStatus.accepted:
+            shop_name = (
+                updated_request.mechanic.shop_name
+                if updated_request.mechanic
+                else "Assigned Mechanic"
+            )
+            NotificationService.notify_request_accepted(db, updated_request, shop_name)
+        elif updated_request.status == RequestStatus.completed:
+            NotificationService.notify_repair_completed(db, updated_request)
+        elif updated_request.status == RequestStatus.cancelled:
+            NotificationService.notify_request_rejected(db, updated_request)
+        else:
+            old_val = old_status.value if hasattr(old_status, "value") else str(old_status)
+            new_val = (
+                updated_request.status.value
+                if hasattr(updated_request.status, "value")
+                else str(updated_request.status)
+            )
+            NotificationService.notify_status_changed(db, updated_request, old_val, new_val)
+
         return RepairRequestService._to_response(updated_request)
 
     @staticmethod
@@ -102,6 +128,7 @@ class RepairRequestService:
 
         request.status = RequestStatus.cancelled
         updated_request = RepairRequestRepository.update(db, request)
+        NotificationService.notify_request_rejected(db, updated_request)
         return RepairRequestService._to_response(updated_request)
 
     @staticmethod
