@@ -1,6 +1,8 @@
 from typing import List, Optional
+from geoalchemy2 import Geometry
 from sqlalchemy.orm import Session
 from geoalchemy2.elements import WKTElement
+from sqlalchemy import cast, func
 
 from app.db.models import RepairRequest, AIDiagnosis, RequestImage, RequestStatus
 from app.repositories.repair import (
@@ -9,6 +11,7 @@ from app.repositories.repair import (
     RequestImageRepository,
 )
 from app.repositories.mechanic import MechanicRepository
+from app.repositories.vehicle import VehicleRepository
 from app.schemas.repair import (
     RepairRequestCreate,
     RepairRequestUpdate,
@@ -28,6 +31,11 @@ class RepairRequestService:
         db: Session, customer_id: str, request_data: RepairRequestCreate
     ) -> RepairRequestResponse:
         """Create a new repair request."""
+        if request_data.vehicle_id:
+            vehicle = VehicleRepository.get_by_id(db, request_data.vehicle_id)
+            if not vehicle or str(vehicle.customer_id) != str(customer_id):
+                raise ValueError("Selected vehicle was not found for this customer")
+
         mechanic_id = request_data.mechanic_id
         if mechanic_id:
             mechanic = MechanicRepository.get_by_id(db, mechanic_id)
@@ -53,19 +61,19 @@ class RepairRequestService:
 
         created_request = RepairRequestRepository.create(db, request)
         NotificationService.notify_new_repair_request(db, created_request)
-        return RepairRequestService._to_response(created_request)
+        return RepairRequestService._to_response(db, created_request)
 
     @staticmethod
     def get_customer_requests(db: Session, customer_id: str) -> List[RepairRequestResponse]:
         """Get all repair requests for a customer."""
         requests = RepairRequestRepository.get_by_customer(db, customer_id)
-        return [RepairRequestService._to_response(r) for r in requests]
+        return [RepairRequestService._to_response(db, r) for r in requests]
 
     @staticmethod
     def get_mechanic_requests(db: Session, mechanic_id: str) -> List[RepairRequestResponse]:
         """Get all repair requests assigned to a mechanic."""
         requests = RepairRequestRepository.get_by_mechanic(db, mechanic_id)
-        return [RepairRequestService._to_response(r) for r in requests]
+        return [RepairRequestService._to_response(db, r) for r in requests]
 
     @staticmethod
     def get_request(db: Session, request_id: str) -> RepairRequestWithDetails:
@@ -134,7 +142,7 @@ class RepairRequestService:
             )
             NotificationService.notify_status_changed(db, updated_request, old_val, new_val)
 
-        return RepairRequestService._to_response(updated_request)
+        return RepairRequestService._to_response(db, updated_request)
 
     @staticmethod
     def cancel_request(db: Session, request_id: str, customer_id: str) -> RepairRequestResponse:
@@ -142,7 +150,7 @@ class RepairRequestService:
         request = RepairRequestRepository.get_by_id(db, request_id)
         if not request:
             raise ValueError("Repair request not found")
-        if request.customer_id != customer_id:
+        if str(request.customer_id) != str(customer_id):
             raise ValueError("Access denied")
         if request.status == RequestStatus.completed:
             raise ValueError("Cannot cancel a completed request")
@@ -150,39 +158,30 @@ class RepairRequestService:
         request.status = RequestStatus.cancelled
         updated_request = RepairRequestRepository.update(db, request)
         NotificationService.notify_request_rejected(db, updated_request)
-        return RepairRequestService._to_response(updated_request)
+        return RepairRequestService._to_response(db, updated_request)
 
     @staticmethod
     def get_pending_requests(db: Session) -> List[RepairRequestResponse]:
         """Get all pending repair requests (for mechanics to browse)."""
         requests = RepairRequestRepository.get_pending_requests(db)
-        return [RepairRequestService._to_response(r) for r in requests]
+        return [RepairRequestService._to_response(db, r) for r in requests]
 
     @staticmethod
-    def _to_response(request: RepairRequest) -> RepairRequestResponse:
+    def _to_response(db: Session, request: RepairRequest) -> RepairRequestResponse:
         """Convert RepairRequest model to response schema."""
         # Extract lat/lon from location if available
         latitude = None
         longitude = None
         if request.customer_location:
             try:
-                from sqlalchemy import func
-                from app.db.session import SessionLocal
-                db = SessionLocal()
-                try:
-                    result = (
-                        db.query(
-                            func.ST_Y(request.customer_location).label("lat"),
-                            func.ST_X(request.customer_location).label("lon"),
-                        )
-                        .filter(RepairRequest.id == request.id)
-                        .first()
-                    )
-                    if result:
-                        latitude = float(result.lat) if result.lat else None
-                        longitude = float(result.lon) if result.lon else None
-                finally:
-                    db.close()
+                point = cast(RepairRequest.customer_location, Geometry(srid=4326))
+                result = db.query(
+                    func.ST_Y(point).label("lat"),
+                    func.ST_X(point).label("lon"),
+                ).filter(RepairRequest.id == request.id).first()
+                if result and result.lat is not None and result.lon is not None:
+                    latitude = float(result.lat)
+                    longitude = float(result.lon)
             except Exception:
                 pass
 
@@ -202,7 +201,7 @@ class RepairRequestService:
     @staticmethod
     def _to_detailed_response(db: Session, request: RepairRequest) -> RepairRequestWithDetails:
         """Convert RepairRequest model to detailed response schema."""
-        base_response = RepairRequestService._to_response(request)
+        base_response = RepairRequestService._to_response(db, request)
 
         # Get vehicle info if available
         vehicle_info = None

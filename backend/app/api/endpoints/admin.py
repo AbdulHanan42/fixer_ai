@@ -2,8 +2,9 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import cast, func, select
 from sqlalchemy.orm import Session, joinedload
+from geoalchemy2 import Geometry
 
 from app.db.models import MechanicProfile, User
 from app.db.session import get_db
@@ -45,9 +46,9 @@ async def list_pending_mechanics(
             try:
                 coords = db.execute(
                     select(
-                        func.ST_Y(profile.location).label("lat"),
-                        func.ST_X(profile.location).label("lon"),
-                    )
+                        func.ST_Y(cast(MechanicProfile.location, Geometry(srid=4326))).label("lat"),
+                        func.ST_X(cast(MechanicProfile.location, Geometry(srid=4326))).label("lon"),
+                    ).where(MechanicProfile.id == profile.id)
                 ).first()
                 if coords:
                     latitude = float(coords.lat) if coords.lat is not None else None

@@ -9,15 +9,7 @@ export const authService = {
     return http.post('/auth/register', userData)
   },
 
-  async logout() {
-    return http.post('/auth/logout')
-  },
-
   async getCurrentUser() {
     return http.get('/auth/me')
-  },
-
-  async refreshToken() {
-    return http.post('/auth/refresh')
   },
 }

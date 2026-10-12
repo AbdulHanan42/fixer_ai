@@ -32,6 +32,18 @@ const nearbyMechanics = computed(() => {
     }))
     .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
 })
+
+const mapUrl = computed(() => {
+  if (!props.location) return ''
+  const { latitude, longitude } = props.location
+  const bbox = [longitude - 0.035, latitude - 0.02, longitude + 0.035, latitude + 0.02].join(',')
+  const query = new URLSearchParams({ bbox, layer: 'mapnik', marker: `${latitude},${longitude}` })
+  return `https://www.openstreetmap.org/export/embed.html?${query}`
+})
+
+const externalMapUrl = computed(() => props.location
+  ? `https://www.openstreetmap.org/?mlat=${props.location.latitude}&mlon=${props.location.longitude}#map=13/${props.location.latitude}/${props.location.longitude}`
+  : '')
 </script>
 
 <template>
@@ -45,28 +57,11 @@ const nearbyMechanics = computed(() => {
       <span v-if="mechanics.length" class="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-800">{{ mechanics.length }} found</span>
     </div>
 
-    <div v-if="location" class="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-sky-50 via-emerald-50 to-slate-100 p-5 shadow-sm">
-      <div class="absolute inset-0 opacity-50" aria-hidden="true">
-        <div class="absolute left-1/4 top-0 h-full w-px rotate-12 bg-white"></div>
-        <div class="absolute left-2/3 top-0 h-full w-px -rotate-12 bg-white"></div>
-        <div class="absolute left-0 top-1/3 h-px w-full rotate-3 bg-white"></div>
-        <div class="absolute left-0 top-2/3 h-px w-full -rotate-3 bg-white"></div>
-      </div>
-      <div class="relative flex min-h-36 flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <p class="text-sm font-semibold text-slate-800">Map preview</p>
-          <p class="mt-1 text-xs text-slate-600">Showing your search area and {{ mechanics.length }} mechanic result(s)</p>
-          <p class="mt-2 font-mono text-xs text-slate-500">{{ location.latitude.toFixed(4) }}, {{ location.longitude.toFixed(4) }}</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-3">
-          <span class="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
-            <span class="size-2.5 rounded-full bg-blue-600 ring-4 ring-blue-200"></span>You
-          </span>
-          <span v-for="mechanic in nearbyMechanics.slice(0, 5)" :key="mechanic.id"
-            class="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm">
-            <span class="size-2.5 rounded-full bg-amber-500"></span>{{ mechanic.shop_name }}
-          </span>
-        </div>
+    <div v-if="location" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <iframe :src="mapUrl" title="OpenStreetMap showing your current location" loading="lazy" referrerpolicy="no-referrer" class="h-64 w-full border-0 sm:h-72"></iframe>
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-4 py-3">
+        <p class="text-xs text-slate-500">Map centered at <span class="font-mono text-slate-700">{{ location.latitude.toFixed(4) }}, {{ location.longitude.toFixed(4) }}</span></p>
+        <a :href="externalMapUrl" target="_blank" rel="noreferrer" class="text-xs font-bold text-blue-700 hover:text-blue-900">Open full map <span aria-hidden="true">↗</span></a>
       </div>
     </div>
 

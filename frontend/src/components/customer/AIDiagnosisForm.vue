@@ -4,7 +4,6 @@ import PrimaryButton from '@/components/ui/PrimaryButton.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 
 const description = defineModel('description', { type: String, default: '' })
-const images = defineModel('images', { type: Array, default: () => [] })
 
 defineProps({
   diagnosis: { type: Object, default: null },
@@ -15,14 +14,6 @@ defineProps({
 defineEmits(['search'])
 
 const canSearch = computed(() => description.value.trim().length >= 10)
-
-function selectImages(event) {
-  images.value = Array.from(event.target.files || [])
-}
-
-function clearImages() {
-  images.value = []
-}
 
 function faultsList(faults) {
   if (!faults) return []
@@ -39,29 +30,18 @@ function faultsList(faults) {
       <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-xl text-blue-700" aria-hidden="true">✦</span>
       <div>
         <p class="text-sm font-semibold uppercase tracking-wider text-blue-600">Start a repair request</p>
-        <h2 class="mt-1 text-xl font-bold">Describe your car problem</h2>
+        <h2 class="mt-1 text-xl font-bold">Describe what is wrong</h2>
         <p class="mt-1 text-sm leading-6 text-slate-600">Share the symptoms so nearby mechanics can understand what you need.</p>
       </div>
     </div>
 
     <form class="mt-6 space-y-5" @submit.prevent="$emit('search')">
       <div>
-        <label for="problem-description" class="mb-2 block text-sm font-medium text-slate-700">What’s going on?</label>
+        <label for="problem-description" class="mb-2 block text-sm font-medium text-slate-700">What is happening with your car?</label>
         <textarea id="problem-description" v-model="description" rows="5" minlength="10" maxlength="2000" required
-          placeholder="For example: I hear a clicking sound when I turn the key…"
+          placeholder="For example: I hear a clicking sound when I turn the key..."
           class="w-full resize-y rounded-lg border border-slate-300 px-3.5 py-3 text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"></textarea>
         <p class="mt-1 text-right text-xs text-slate-500">{{ description.length }}/2000</p>
-      </div>
-
-      <div>
-        <label for="problem-images" class="mb-2 block text-sm font-medium text-slate-700">Photos <span class="font-normal text-slate-500">(optional)</span></label>
-        <input id="problem-images" type="file" accept="image/*" multiple @change="selectImages"
-          class="block w-full rounded-lg border border-slate-300 bg-white text-sm text-slate-600 file:mr-4 file:border-0 file:bg-slate-100 file:px-4 file:py-3 file:font-semibold file:text-slate-700 hover:file:bg-slate-200" />
-        <div v-if="images.length" class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-          <span>{{ images.length }} photo(s) selected</span>
-          <button type="button" class="font-semibold text-blue-700 hover:text-blue-800" @click="clearImages">Clear</button>
-        </div>
-        <p class="mt-1 text-xs leading-5 text-slate-500">Photos are selected locally; the current repair API accepts text and location only.</p>
       </div>
 
       <PrimaryButton type="submit" :loading="loading" :disabled="!canSearch" class="w-full sm:w-auto">
@@ -80,7 +60,7 @@ function faultsList(faults) {
     <div v-if="diagnosis" class="mt-6 rounded-xl border border-blue-200 bg-blue-50/70 p-5">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p class="text-sm font-semibold uppercase tracking-wider text-blue-700">AI diagnosis</p>
+          <p class="text-sm font-semibold uppercase tracking-wider text-blue-700">Automated assessment</p>
           <h3 class="mt-1 text-lg font-bold text-slate-900">Initial assessment</h3>
         </div>
         <StatusBadge :status="diagnosis.urgency" :label="`${diagnosis.urgency} urgency`" />
@@ -96,7 +76,7 @@ function faultsList(faults) {
       </div>
     </div>
     <div v-else-if="request" class="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-      The current backend did not return an AI diagnosis for this request. Your repair request was still sent successfully.
+      Your request was sent successfully. Your selected mechanic will review the symptoms you provided.
     </div>
   </section>
 </template>

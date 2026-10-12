@@ -33,23 +33,11 @@ export const mechanicService = {
     return http.delete(`/mechanics/services/${id}`)
   },
 
-  async searchMechanics(params) {
+  searchMechanics(params) {
     return http.get('/mechanics/search', { params })
   },
 
-  async getMechanicById(id) {
-    return http.get(`/mechanics/${id}`)
-  },
-
-  async getMechanicReviews(id) {
-    return http.get(`/mechanics/${id}/reviews`)
-  },
-
-  async submitReview(id, reviewData) {
-    return http.post(`/mechanics/${id}/reviews`, reviewData)
-  },
-
-  async sendRepairRequest(mechanicId, requestData) {
-    return http.post(`/mechanics/${mechanicId}/requests`, requestData)
+  getMechanicReviews(id) {
+    return http.get(`/reviews/mechanic/${id}`)
   },
 }

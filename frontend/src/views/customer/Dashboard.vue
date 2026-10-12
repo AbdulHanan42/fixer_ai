@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AIDiagnosisForm from '@/components/customer/AIDiagnosisForm.vue'
 import MechanicList from '@/components/customer/MechanicList.vue'
+import VehicleGarage from '@/components/customer/VehicleGarage.vue'
 import ChatBox from '@/components/chat/ChatBox.vue'
 import ReviewModal from '@/components/customer/ReviewModal.vue'
 import http from '@/api/http.js'
@@ -11,14 +12,19 @@ import { useLocation } from '@/composables/useLocation.js'
 import { locationService } from '@/services/location.service.js'
 import { mechanicService } from '@/services/mechanic.service.js'
 import { repairService } from '@/services/repair.service.js'
+import { vehicleService } from '@/services/vehicle.service.js'
 
 const { location, error: locationError, isLoading: isLocating, getCurrentLocation } = useLocation()
 const { showError, showSuccess } = useNotifications()
 const route = useRoute()
 
 const description = ref('')
-const images = ref([])
 const mechanics = ref([])
+const vehicles = ref([])
+const selectedVehicleId = ref('')
+const vehiclesLoading = ref(true)
+const vehicleSaving = ref(false)
+const vehicleError = ref('')
 const searchError = ref('')
 const isSearching = ref(false)
 const busyMechanicId = ref('')
@@ -76,6 +82,7 @@ async function requestRepair(mechanic) {
       latitude: location.value.latitude,
       longitude: location.value.longitude,
       mechanic_id: mechanic.id,
+      vehicle_id: selectedVehicleId.value || null,
     })
     latestRequest.value = created
     recentRequests.value = [created, ...recentRequests.value]
@@ -90,6 +97,20 @@ async function requestRepair(mechanic) {
     }
   } catch (error) {
     showError(error.message || 'Could not send the repair request.')
+  } finally {
+    busyMechanicId.value = ''
+  }
+}
+
+async function cancelRepair(request) {
+  if (!window.confirm('Cancel this pending repair request?')) return
+  busyMechanicId.value = request.id
+  try {
+    const updated = await repairService.cancelRepairRequest(request.id)
+    recentRequests.value = recentRequests.value.map((item) => item.id === updated.id ? updated : item)
+    showSuccess('Repair request cancelled.')
+  } catch (error) {
+    showError(error.message || 'Could not cancel this repair request.')
   } finally {
     busyMechanicId.value = ''
   }
@@ -113,6 +134,50 @@ async function loadRequestHistory() {
   }
 }
 
+async function loadVehicles() {
+  vehicleError.value = ''
+  vehiclesLoading.value = true
+  try {
+    vehicles.value = await vehicleService.list()
+    if (selectedVehicleId.value && !vehicles.value.some((vehicle) => vehicle.id === selectedVehicleId.value)) selectedVehicleId.value = ''
+  } catch (error) {
+    vehicleError.value = error.message || 'Could not load your garage.'
+  } finally {
+    vehiclesLoading.value = false
+  }
+}
+
+async function createVehicle(vehicle) {
+  vehicleSaving.value = true
+  vehicleError.value = ''
+  try {
+    const created = await vehicleService.create(vehicle)
+    vehicles.value = [created, ...vehicles.value]
+    selectedVehicleId.value = created.id
+    showSuccess('Vehicle added to your garage.')
+  } catch (error) {
+    vehicleError.value = error.message || 'Could not save this vehicle.'
+  } finally {
+    vehicleSaving.value = false
+  }
+}
+
+async function removeVehicle(vehicle) {
+  if (!window.confirm(`Remove ${vehicle.year} ${vehicle.make} ${vehicle.model} from your garage?`)) return
+  vehicleSaving.value = true
+  vehicleError.value = ''
+  try {
+    await vehicleService.remove(vehicle.id)
+    vehicles.value = vehicles.value.filter((item) => item.id !== vehicle.id)
+    if (selectedVehicleId.value === vehicle.id) selectedVehicleId.value = ''
+    showSuccess('Vehicle removed from your garage.')
+  } catch (error) {
+    vehicleError.value = error.message || 'Could not remove this vehicle.'
+  } finally {
+    vehicleSaving.value = false
+  }
+}
+
 function formatCoordinates() {
   return location.value ? `${location.value.latitude.toFixed(4)}, ${location.value.longitude.toFixed(4)}` : ''
 }
@@ -129,6 +194,7 @@ function onReviewSubmitted(requestId) {
 
 let historyRefreshTimer
 onMounted(() => {
+  loadVehicles()
   loadRequestHistory()
   historyRefreshTimer = window.setInterval(loadRequestHistory, 30000)
 })
@@ -143,9 +209,12 @@ onUnmounted(() => window.clearInterval(historyRefreshTimer))
       <p class="mt-3 max-w-2xl text-slate-600">Tell us what’s happening, share your location, and send a repair request to a nearby mechanic.</p>
     </section>
 
+    <VehicleGarage v-model:selected-vehicle-id="selectedVehicleId" :vehicles="vehicles" :loading="vehiclesLoading"
+      :saving="vehicleSaving" :error="vehicleError" @create="createVehicle" @remove="removeVehicle" />
+
     <div class="grid items-start gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <div class="space-y-5">
-        <AIDiagnosisForm v-model:description="description" v-model:images="images"
+        <AIDiagnosisForm v-model:description="description"
           :diagnosis="aiDiagnosis" :request="latestRequest"
           :loading="isSearching || isLocating" @search="findNearbyMechanics" />
         <div v-if="location" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
@@ -170,7 +239,9 @@ onUnmounted(() => window.clearInterval(historyRefreshTimer))
             <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold capitalize text-amber-800">{{ request.status }}</span>
           </div>
           <p class="mt-2 line-clamp-2 text-sm leading-5 text-slate-600">{{ request.description }}</p>
+          <p v-if="request.created_at" class="mt-2 text-[11px] text-slate-400">{{ new Date(request.created_at).toLocaleString() }}</p>
           <button v-if="request.mechanic_id && ['accepted', 'completed'].includes(request.status)" type="button" class="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100" @click="activeChatRequestId = activeChatRequestId === request.id ? '' : request.id">{{ activeChatRequestId === request.id ? 'Close chat' : 'Message mechanic' }} <span aria-hidden="true">→</span></button>
+          <button v-if="request.status === 'pending'" type="button" :disabled="busyMechanicId === request.id" class="ml-2 mt-4 rounded-lg px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50" @click="cancelRepair(request)">{{ busyMechanicId === request.id ? 'Cancelling...' : 'Cancel request' }}</button>
         </article>
       </div>
       <div v-if="activeChatRequestId" class="mt-5 max-w-2xl"><ChatBox :request-id="activeChatRequestId" /></div>

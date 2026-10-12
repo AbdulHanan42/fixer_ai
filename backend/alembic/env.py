@@ -19,7 +19,10 @@ from app.db.models import User, Vehicle, MechanicProfile, Service, MechanicServi
 config = context.config
 
 # Override sqlalchemy.url from environment variable
-config.set_main_option("sqlalchemy.url", os.getenv("Database_URL"))
+database_url = os.getenv("DATABASE_URL") or os.getenv("Database_URL")
+if not database_url:
+    raise RuntimeError("Set DATABASE_URL in the environment or backend/.env")
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

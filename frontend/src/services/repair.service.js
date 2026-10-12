@@ -20,4 +20,8 @@ export const repairService = {
   updateRepairRequestStatus(requestId, status) {
     return http.put(`/repairs/${requestId}`, { status })
   },
+
+  cancelRepairRequest(requestId) {
+    return http.delete(`/repairs/${requestId}`)
+  },
 }
