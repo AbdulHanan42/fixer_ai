@@ -8,6 +8,7 @@ class PendingMechanicResponse(BaseModel):
     user_id: str
     shop_name: str
     address: str
+    city: str | None = None
     is_verified: bool
     average_rating: float
     mechanic_name: str | None = None

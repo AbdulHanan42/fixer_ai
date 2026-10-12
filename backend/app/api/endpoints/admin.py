@@ -63,6 +63,7 @@ async def list_pending_mechanics(
                 user_id=str(profile.user_id),
                 shop_name=profile.shop_name,
                 address=profile.address,
+                city=profile.city,
                 is_verified=profile.is_verified,
                 average_rating=profile.average_rating,
                 mechanic_name=user.full_name if user else None,
