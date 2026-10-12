@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.db.models import User
+from app.db.models import RequestStatus, User
 from app.dependencies.auth import get_current_user, get_current_customer, get_current_mechanic
 from app.schemas.repair import (
     RepairRequestCreate,
@@ -27,6 +27,7 @@ async def create_repair_request(
     Create a new repair request.
 
     - **vehicle_id**: Optional vehicle ID
+    - **mechanic_id**: Optional mechanic profile selected by the customer
     - **description**: Description of the problem (10-2000 characters)
     - **latitude**: Customer's current latitude
     - **longitude**: Customer's current longitude
@@ -138,13 +139,23 @@ async def update_repair_request_status(
             detail="Mechanic profile not found",
         )
 
+    if status_data.status in {RequestStatus.accepted, RequestStatus.cancelled} and not profile.is_online:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Go online before accepting or rejecting repair requests",
+        )
+
     try:
         return RepairRequestService.update_request_status(
             db, request_id, str(profile.id), status_data
         )
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST if "Cannot" in str(e) else status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+                if "Cannot" in str(e) or "already assigned" in str(e)
+                else status.HTTP_404_NOT_FOUND
+            ),
             detail=str(e),
         )
 

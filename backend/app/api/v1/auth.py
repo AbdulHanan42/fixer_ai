@@ -1,6 +1,9 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from urllib.parse import parse_qs
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -37,7 +40,7 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(
-    login_data: UserLogin,
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
 ):
     """
@@ -46,6 +49,19 @@ async def login(
     - **email**: User's email address
     - **password**: User's password
     """
+    content_type = request.headers.get("content-type", "")
+    try:
+        if "application/x-www-form-urlencoded" in content_type:
+            fields = parse_qs((await request.body()).decode("utf-8"), keep_blank_values=True)
+            login_data = UserLogin(
+                email=fields.get("email", [""])[0],
+                password=fields.get("password", [""])[0],
+            )
+        else:
+            login_data = UserLogin(**(await request.json()))
+    except (ValidationError, ValueError, UnicodeDecodeError) as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
+
     try:
         return AuthService.authenticate_user(db, login_data)
     except ValueError as e:

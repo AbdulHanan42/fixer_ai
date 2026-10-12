@@ -1,23 +1,50 @@
-import api from './api.js'
+import http from '@/api/http.js'
 
 export const mechanicService = {
-  async searchMechanics(params) {
-    return api.get('/mechanics', { params })
+  getProfile() {
+    return http.get('/mechanics/profile')
   },
 
-  async getMechanicById(id) {
-    return api.get(`/mechanics/${id}`)
+  createProfile(profile) {
+    return http.post('/mechanics/profile', profile)
   },
 
-  async getMechanicReviews(id) {
-    return api.get(`/mechanics/${id}/reviews`)
+  updateProfile(profile) {
+    return http.put('/mechanics/profile', profile)
   },
 
-  async submitReview(id, reviewData) {
-    return api.post(`/mechanics/${id}/reviews`, reviewData)
+  getServices() {
+    return http.get('/mechanics/services')
   },
 
-  async sendRepairRequest(mechanicId, requestData) {
-    return api.post(`/mechanics/${mechanicId}/requests`, requestData)
+  getServiceCatalog() {
+    return http.get('/mechanics/catalog')
+  },
+
+  addService(service) {
+    return http.post('/mechanics/services', service)
+  },
+
+  updateServicePrice(id, basePrice) {
+    return http.put(`/mechanics/services/${id}`, { base_price: basePrice })
+  },
+
+  removeService(id) {
+    return http.delete(`/mechanics/services/${id}`)
+  },
+
+  searchMechanics(params) {
+    return http.get('/mechanics/search', { params })
+  },
+
+  searchDirectory(city, issue = '') {
+    const params = {}
+    if (city) params.city = city
+    if (issue) params.issue = issue
+    return http.get('/mechanics/directory', { params })
+  },
+
+  getMechanicReviews(id) {
+    return http.get(`/reviews/mechanic/${id}`)
   },
 }

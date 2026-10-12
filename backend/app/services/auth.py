@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.core.security import verify_password, get_password_hash, create_access_token
-from app.db.models import User
+from app.db.models import User, UserRole
 from app.repositories.user import UserRepository
 from app.schemas.auth import UserRegister, UserLogin, Token, UserResponse
 
@@ -12,6 +12,9 @@ class AuthService:
     @staticmethod
     def register_user(db: Session, user_data: UserRegister) -> UserResponse:
         """Register a new user."""
+        if user_data.role == UserRole.admin:
+            raise ValueError("Admin accounts must be provisioned by the system operator")
+
         # Normalize phone number
         normalized_phone = user_data.phone_number.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
 

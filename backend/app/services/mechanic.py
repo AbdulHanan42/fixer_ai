@@ -1,6 +1,8 @@
 from typing import List, Optional
+from geoalchemy2 import Geometry
 from sqlalchemy.orm import Session
 from geoalchemy2.elements import WKTElement
+from sqlalchemy import cast, func
 
 from app.db.models import MechanicProfile, Service, MechanicService
 from app.repositories.mechanic import (
@@ -47,13 +49,14 @@ class MechanicProfileService:
             user_id=user_id,
             shop_name=profile_data.shop_name,
             address=profile_data.address,
+            city=profile_data.city.strip(),
             location=location,
             is_verified=False,
             average_rating=0.0,
         )
 
         created_profile = MechanicRepository.create(db, profile)
-        return MechanicProfileService._to_response(created_profile)
+        return MechanicProfileService._to_response(db, created_profile)
 
     @staticmethod
     def get_profile(db: Session, user_id: str) -> MechanicProfileResponse:
@@ -61,13 +64,15 @@ class MechanicProfileService:
         profile = MechanicRepository.get_by_user_id(db, user_id)
         if not profile:
             raise ValueError("Mechanic profile not found")
-        return MechanicProfileService._to_response(profile)
+        return MechanicProfileService._to_response(db, profile)
 
     @staticmethod
     def update_profile(
         db: Session, user_id: str, profile_data: MechanicProfileUpdate
     ) -> MechanicProfileResponse:
         """Update mechanic profile."""
+        if (profile_data.latitude is None) != (profile_data.longitude is None):
+            raise ValueError("Latitude and longitude must be provided together")
         profile = MechanicRepository.get_by_user_id(db, user_id)
         if not profile:
             raise ValueError("Mechanic profile not found")
@@ -77,6 +82,10 @@ class MechanicProfileService:
             profile.shop_name = profile_data.shop_name
         if profile_data.address is not None:
             profile.address = profile_data.address
+        if profile_data.city is not None:
+            profile.city = profile_data.city.strip()
+        if profile_data.is_online is not None:
+            profile.is_online = profile_data.is_online
         if profile_data.latitude is not None and profile_data.longitude is not None:
             profile.location = WKTElement(
                 f"POINT({profile_data.longitude} {profile_data.latitude})",
@@ -84,47 +93,53 @@ class MechanicProfileService:
             )
 
         updated_profile = MechanicRepository.update(db, profile)
-        return MechanicProfileService._to_response(updated_profile)
+        return MechanicProfileService._to_response(db, updated_profile)
 
     @staticmethod
     def search_nearby(
-        db: Session, latitude: float, longitude: float, radius_km: float = 50
+        db: Session, latitude: float, longitude: float, radius_km: float = 50,
+        issue: str | None = None,
     ) -> List[MechanicProfileResponse]:
         """Search for nearby mechanics."""
-        profiles = MechanicRepository.search_nearby(db, latitude, longitude, radius_km)
-        return [MechanicProfileService._to_response(p) for p in profiles]
+        matches = MechanicRepository.search_nearby(db, latitude, longitude, radius_km, issue)
+        return [
+            MechanicProfileService._to_response(db, profile).model_copy(update={"issue_match": issue_match})
+            for profile, issue_match in matches
+        ]
 
     @staticmethod
     def get_all(db: Session, skip: int = 0, limit: int = 100) -> List[MechanicProfileResponse]:
         """Get all mechanic profiles."""
         profiles = MechanicRepository.get_all(db, skip, limit)
-        return [MechanicProfileService._to_response(p) for p in profiles]
+        return [MechanicProfileService._to_response(db, p) for p in profiles]
 
     @staticmethod
-    def _to_response(profile: MechanicProfile) -> MechanicProfileResponse:
+    def search_directory(
+        db: Session, city: str | None = None, skip: int = 0, limit: int = 50,
+        issue: str | None = None,
+    ) -> List[MechanicProfileResponse]:
+        matches = MechanicRepository.search_directory(db, city, skip, limit, issue)
+        return [
+            MechanicProfileService._to_response(db, profile).model_copy(update={"issue_match": issue_match})
+            for profile, issue_match in matches
+        ]
+
+    @staticmethod
+    def _to_response(db: Session, profile: MechanicProfile) -> MechanicProfileResponse:
         """Convert MechanicProfile model to response schema."""
-        # Extract lat/lon from location if available
+        # Geography columns need a geometry cast before ST_X/ST_Y can read them.
         latitude = None
         longitude = None
         if profile.location:
             try:
-                from sqlalchemy import func
-                from app.db.session import SessionLocal
-                db = SessionLocal()
-                try:
-                    result = (
-                        db.query(
-                            func.ST_Y(profile.location).label("lat"),
-                            func.ST_X(profile.location).label("lon"),
-                        )
-                        .filter(MechanicProfile.id == profile.id)
-                        .first()
-                    )
-                    if result:
-                        latitude = float(result.lat) if result.lat else None
-                        longitude = float(result.lon) if result.lon else None
-                finally:
-                    db.close()
+                point = cast(MechanicProfile.location, Geometry(srid=4326))
+                result = db.query(
+                    func.ST_Y(point).label("lat"),
+                    func.ST_X(point).label("lon"),
+                ).filter(MechanicProfile.id == profile.id).first()
+                if result and result.lat is not None and result.lon is not None:
+                    latitude = float(result.lat)
+                    longitude = float(result.lon)
             except Exception:
                 # If location parsing fails, return None for coordinates
                 pass
@@ -134,9 +149,11 @@ class MechanicProfileService:
             user_id=str(profile.user_id),
             shop_name=profile.shop_name,
             address=profile.address,
+            city=profile.city,
             latitude=latitude,
             longitude=longitude,
             is_verified=profile.is_verified,
+            is_online=profile.is_online,
             average_rating=profile.average_rating,
         )
 

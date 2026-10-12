@@ -1,10 +1,13 @@
+import { computed } from 'vue'
 import { useAppStore } from '@/stores/app.js'
+
+let nextNotificationId = 0
 
 export function useNotifications() {
   const appStore = useAppStore()
 
   function showNotification(notification) {
-    const id = Date.now()
+    const id = ++nextNotificationId
     appStore.addNotification({ id, ...notification })
 
     setTimeout(() => {
@@ -25,7 +28,7 @@ export function useNotifications() {
   }
 
   return {
-    notifications: appStore.notifications,
+    notifications: computed(() => appStore.notifications),
     showNotification,
     showError,
     showSuccess,

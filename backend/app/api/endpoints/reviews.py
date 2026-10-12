@@ -12,6 +12,24 @@ from app.schemas.review import ReviewCreate, ReviewListResponse, ReviewResponse
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 
 
+@router.get("/request/{request_id}/status")
+async def get_request_review_status(
+    request_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Return whether the current customer has reviewed a completed request."""
+    repair_request = db.execute(
+        select(RepairRequest).where(RepairRequest.id == request_id)
+    ).scalar_one_or_none()
+    if not repair_request:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Repair request not found.")
+    if str(repair_request.customer_id) != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+    existing = db.execute(select(Review.id).where(Review.request_id == repair_request.id)).scalar_one_or_none()
+    return {"reviewed": existing is not None}
+
+
 @router.post("", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 async def create_review(
