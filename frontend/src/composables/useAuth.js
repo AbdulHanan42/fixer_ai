@@ -7,12 +7,7 @@ export function useAuth() {
     user: authStore.user,
     token: authStore.token,
     isAuthenticated: authStore.isAuthenticated,
-    login: (credentials) => {
-      authStore.setUser(credentials.user)
-      authStore.setToken(credentials.token)
-    },
-    logout: () => {
-      authStore.logout()
-    },
+    login: (credentials) => authStore.login(credentials.email, credentials.password),
+    logout: () => authStore.logout(),
   }
 }

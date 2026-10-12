@@ -16,6 +16,7 @@ class MechanicProfileUpdate(BaseModel):
     address: Optional[str] = Field(None, min_length=5, max_length=500)
     latitude: Optional[float] = Field(None, ge=-90, le=90)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
+    is_online: Optional[bool] = None
 
 
 class MechanicProfileResponse(BaseModel):
@@ -27,6 +28,7 @@ class MechanicProfileResponse(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     is_verified: bool
+    is_online: bool = False
     average_rating: float
 
     class Config:

@@ -1,7 +1,7 @@
 import uuid
 import enum
 from typing import Optional
-from sqlalchemy import String, Boolean, ForeignKey, Float, Text, Enum as SQLEnum, Integer, DateTime
+from sqlalchemy import String, Boolean, ForeignKey, Float, Text, Enum as SQLEnum, Integer, DateTime, false
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -68,6 +68,7 @@ class MechanicProfile(Base):
     location = mapped_column(Geography(geometry_type='POINT', srid=4326))
     address: Mapped[str] = mapped_column(String)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_online: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     average_rating: Mapped[float] = mapped_column(Float, default=0.0)
 
     user = relationship("User", back_populates="mechanic_profile")

@@ -1,0 +1,180 @@
+<script setup>
+import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import AIDiagnosisForm from '@/components/customer/AIDiagnosisForm.vue'
+import MechanicList from '@/components/customer/MechanicList.vue'
+import ChatBox from '@/components/chat/ChatBox.vue'
+import ReviewModal from '@/components/customer/ReviewModal.vue'
+import http from '@/api/http.js'
+import { useNotifications } from '@/composables/useNotifications.js'
+import { useLocation } from '@/composables/useLocation.js'
+import { locationService } from '@/services/location.service.js'
+import { mechanicService } from '@/services/mechanic.service.js'
+import { repairService } from '@/services/repair.service.js'
+
+const { location, error: locationError, isLoading: isLocating, getCurrentLocation } = useLocation()
+const { showError, showSuccess } = useNotifications()
+const route = useRoute()
+
+const description = ref('')
+const images = ref([])
+const mechanics = ref([])
+const searchError = ref('')
+const isSearching = ref(false)
+const busyMechanicId = ref('')
+const latestRequest = ref(null)
+const aiDiagnosis = ref(null)
+const recentRequests = ref([])
+const activeChatRequestId = ref('')
+const reviewCandidate = ref(null)
+const reviewedIds = new Set()
+const dismissedReviewIds = new Set()
+
+watch(() => route.query.chat, (requestId) => {
+  activeChatRequestId.value = typeof requestId === 'string' ? requestId : ''
+}, { immediate: true })
+
+async function findNearbyMechanics() {
+  searchError.value = ''
+  if (description.value.trim().length < 10) {
+    searchError.value = 'Please describe the problem in at least 10 characters before searching.'
+    return
+  }
+
+  isSearching.value = true
+  await getCurrentLocation()
+  if (!location.value) {
+    searchError.value = locationError.value || 'Your location could not be read. Allow location access and try again.'
+    isSearching.value = false
+    return
+  }
+
+  try {
+    mechanics.value = await mechanicService.searchMechanics({
+      latitude: location.value.latitude,
+      longitude: location.value.longitude,
+      radius_km: 50,
+    })
+  } catch (error) {
+    searchError.value = error.message || 'Could not load nearby mechanics.'
+  } finally {
+    isSearching.value = false
+  }
+}
+
+async function requestRepair(mechanic) {
+  if (!location.value || description.value.trim().length < 10) {
+    showError('Describe the problem and search nearby before requesting a repair.')
+    return
+  }
+
+  busyMechanicId.value = mechanic.id
+  aiDiagnosis.value = null
+  try {
+    const created = await repairService.createRepairRequest({
+      description: description.value.trim(),
+      latitude: location.value.latitude,
+      longitude: location.value.longitude,
+      mechanic_id: mechanic.id,
+    })
+    latestRequest.value = created
+    recentRequests.value = [created, ...recentRequests.value]
+    showSuccess(`Repair request sent to ${mechanic.shop_name}.`)
+
+    try {
+      const details = await repairService.getRepairRequest(created.id)
+      latestRequest.value = details
+      aiDiagnosis.value = details.ai_diagnosis || null
+    } catch {
+      // The request itself was created successfully; details can be loaded later.
+    }
+  } catch (error) {
+    showError(error.message || 'Could not send the repair request.')
+  } finally {
+    busyMechanicId.value = ''
+  }
+}
+
+async function loadRequestHistory() {
+  try {
+    recentRequests.value = await repairService.getMyRepairRequests()
+    const completed = recentRequests.value.filter((request) => request.status === 'completed' && request.mechanic_id && !reviewedIds.has(request.id) && !dismissedReviewIds.has(request.id))
+    for (const request of completed) {
+      try {
+        const result = await http.get(`/reviews/request/${request.id}/status`)
+        if (result.reviewed) reviewedIds.add(request.id)
+        else if (!reviewCandidate.value) reviewCandidate.value = request
+      } catch {
+        // Keep history available even if review status cannot be checked.
+      }
+    }
+  } catch {
+    // Dashboard history is secondary to the location-based request flow.
+  }
+}
+
+function formatCoordinates() {
+  return location.value ? `${location.value.latitude.toFixed(4)}, ${location.value.longitude.toFixed(4)}` : ''
+}
+
+function dismissReview() {
+  if (reviewCandidate.value) dismissedReviewIds.add(reviewCandidate.value.id)
+  reviewCandidate.value = null
+}
+
+function onReviewSubmitted(requestId) {
+  reviewedIds.add(requestId)
+  reviewCandidate.value = null
+}
+
+let historyRefreshTimer
+onMounted(() => {
+  loadRequestHistory()
+  historyRefreshTimer = window.setInterval(loadRequestHistory, 30000)
+})
+onUnmounted(() => window.clearInterval(historyRefreshTimer))
+</script>
+
+<template>
+  <div class="space-y-10">
+    <section>
+      <p class="text-sm font-semibold uppercase tracking-wider text-blue-600">Customer workspace</p>
+      <h1 class="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Find help for your car</h1>
+      <p class="mt-3 max-w-2xl text-slate-600">Tell us what’s happening, share your location, and send a repair request to a nearby mechanic.</p>
+    </section>
+
+    <div class="grid items-start gap-8 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <div class="space-y-5">
+        <AIDiagnosisForm v-model:description="description" v-model:images="images"
+          :diagnosis="aiDiagnosis" :request="latestRequest"
+          :loading="isSearching || isLocating" @search="findNearbyMechanics" />
+        <div v-if="location" class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+          Search location: <span class="font-mono text-slate-700">{{ formatCoordinates() }}</span>
+        </div>
+      </div>
+
+      <MechanicList :location="location" :mechanics="mechanics" :loading="isSearching || isLocating"
+        :error="searchError" :busy-mechanic-id="busyMechanicId"
+        :can-request="description.trim().length >= 10" @request-repair="requestRepair" @retry="findNearbyMechanics" />
+    </div>
+
+    <section v-if="recentRequests.length" class="space-y-4">
+      <div>
+        <p class="text-sm font-semibold uppercase tracking-wider text-blue-600">Your activity</p>
+        <h2 class="mt-1 text-2xl font-bold tracking-tight">Recent repair requests</h2>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        <article v-for="request in recentRequests.slice(0, 4)" :key="request.id" class="group rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-950/5 [transform:perspective(1200px)_rotateX(.5deg)]">
+          <div class="flex items-center justify-between gap-3">
+            <p class="font-semibold text-slate-900">Request #{{ request.id.slice(0, 8) }}</p>
+            <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold capitalize text-amber-800">{{ request.status }}</span>
+          </div>
+          <p class="mt-2 line-clamp-2 text-sm leading-5 text-slate-600">{{ request.description }}</p>
+          <button v-if="request.mechanic_id && ['accepted', 'completed'].includes(request.status)" type="button" class="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition hover:bg-blue-100" @click="activeChatRequestId = activeChatRequestId === request.id ? '' : request.id">{{ activeChatRequestId === request.id ? 'Close chat' : 'Message mechanic' }} <span aria-hidden="true">→</span></button>
+        </article>
+      </div>
+      <div v-if="activeChatRequestId" class="mt-5 max-w-2xl"><ChatBox :request-id="activeChatRequestId" /></div>
+    </section>
+    <ReviewModal v-if="reviewCandidate" :request="reviewCandidate" @close="dismissReview" @submitted="onReviewSubmitted" />
+  </div>
+</template>

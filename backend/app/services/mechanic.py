@@ -77,6 +77,8 @@ class MechanicProfileService:
             profile.shop_name = profile_data.shop_name
         if profile_data.address is not None:
             profile.address = profile_data.address
+        if profile_data.is_online is not None:
+            profile.is_online = profile_data.is_online
         if profile_data.latitude is not None and profile_data.longitude is not None:
             profile.location = WKTElement(
                 f"POINT({profile_data.longitude} {profile_data.latitude})",
@@ -137,6 +139,7 @@ class MechanicProfileService:
             latitude=latitude,
             longitude=longitude,
             is_verified=profile.is_verified,
+            is_online=profile.is_online,
             average_rating=profile.average_rating,
         )
 

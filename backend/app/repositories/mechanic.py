@@ -56,6 +56,7 @@ class MechanicRepository:
         radius_meters = radius_km * 1000
         query = (
             db.query(MechanicProfile)
+            .filter(MechanicProfile.is_online.is_(True))
             .filter(
                 text("ST_DWithin(location, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326), :radius)")
             )

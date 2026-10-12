@@ -8,6 +8,7 @@ from app.repositories.repair import (
     AIDiagnosisRepository,
     RequestImageRepository,
 )
+from app.repositories.mechanic import MechanicRepository
 from app.schemas.repair import (
     RepairRequestCreate,
     RepairRequestUpdate,
@@ -27,6 +28,14 @@ class RepairRequestService:
         db: Session, customer_id: str, request_data: RepairRequestCreate
     ) -> RepairRequestResponse:
         """Create a new repair request."""
+        mechanic_id = request_data.mechanic_id
+        if mechanic_id:
+            mechanic = MechanicRepository.get_by_id(db, mechanic_id)
+            if not mechanic:
+                raise ValueError("Mechanic profile not found")
+            if not mechanic.is_online:
+                raise ValueError("Selected mechanic is currently offline")
+
         # Create location point from lat/lon
         location = WKTElement(
             f"POINT({request_data.longitude} {request_data.latitude})",
@@ -36,6 +45,7 @@ class RepairRequestService:
         request = RepairRequest(
             customer_id=customer_id,
             vehicle_id=request_data.vehicle_id,
+            mechanic_id=mechanic_id,
             description=request_data.description,
             customer_location=location,
             status=RequestStatus.pending,
@@ -81,13 +91,24 @@ class RepairRequestService:
         if request.status == RequestStatus.cancelled:
             raise ValueError("Cannot update a cancelled request")
 
+        if request.mechanic_id and str(request.mechanic_id) != str(mechanic_id):
+            raise ValueError("Request already assigned to another mechanic")
+
         old_status = request.status
 
-        # If assigning to mechanic
         if status_data.status == RequestStatus.accepted:
-            if request.mechanic_id and request.mechanic_id != mechanic_id:
-                raise ValueError("Request already assigned to another mechanic")
+            if request.status != RequestStatus.pending:
+                raise ValueError("Cannot accept a request that is not pending")
             request.mechanic_id = mechanic_id
+        elif status_data.status == RequestStatus.cancelled:
+            if request.status != RequestStatus.pending:
+                raise ValueError("Cannot reject a request that is not pending")
+            request.mechanic_id = mechanic_id
+        elif status_data.status == RequestStatus.completed:
+            if request.status != RequestStatus.accepted:
+                raise ValueError("Only accepted requests can be completed")
+        else:
+            raise ValueError("Mechanics cannot move a request back to pending")
 
         request.status = status_data.status
         updated_request = RepairRequestRepository.update(db, request)
