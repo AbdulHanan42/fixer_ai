@@ -16,6 +16,6 @@ For local development only, `python -m scripts.seed` creates the sample admin `a
 
 ## AI diagnosis
 
-Set `OPENAI_API_KEY` in `backend/.env` to enable image diagnosis. The vision model defaults to `gpt-4o-mini`; override it with `OPENAI_VISION_MODEL` if needed. Apply database changes with `alembic upgrade head` from the `backend` directory.
+Set `GEMINI_API_KEY` in `backend/.env` to enable image diagnosis. The Gemini API uses `gemini-3.8-flash` by default; override it with `GEMINI_VISION_MODEL` if needed. Apply database changes with `alembic upgrade head` from the `backend` directory.
 
 Authenticated customers can submit a multipart request to `POST /api/diagnosis/analyze` with `image` and `description` fields. The response includes possible issues, urgency, the exact matching service category, and verified mechanics offering that category. Distances are `null` because the analyze request does not include customer coordinates.

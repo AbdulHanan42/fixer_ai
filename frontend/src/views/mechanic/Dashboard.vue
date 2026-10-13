@@ -27,6 +27,7 @@ const isRefreshing = ref(false)
 const isQueueLoading = ref(true)
 const isSavingProfile = ref(false)
 const isSavingService = ref(false)
+const isSavingWorkshopImage = ref(false)
 const isSavingAvailability = ref(false)
 const busyRequestId = ref('')
 const activeChatRequestId = ref('')
@@ -132,6 +133,18 @@ async function saveProfile(profileData) {
     showError(error.message || 'Could not save your shop profile.')
   } finally {
     isSavingProfile.value = false
+  }
+}
+
+async function uploadWorkshopImage(file) {
+  isSavingWorkshopImage.value = true
+  try {
+    profile.value = await mechanicService.uploadWorkshopImage(file)
+    showSuccess('Workshop photo updated.')
+  } catch (error) {
+    showError(error.message || 'Could not upload the workshop photo.')
+  } finally {
+    isSavingWorkshopImage.value = false
   }
 }
 
@@ -279,8 +292,9 @@ onUnmounted(() => window.clearInterval(queueRefreshTimer))
 
       <MechanicSettings :profile="profile" :services="mechanicServices" :catalog="serviceCatalog"
         :saving-profile="isSavingProfile" :saving-service="isSavingService"
+        :saving-workshop-image="isSavingWorkshopImage"
         v-model:selected-service-id="selectedServiceId" v-model:new-service-price="newServicePrice"
-        @save-profile="saveProfile" @add-service="addService"
+        @save-profile="saveProfile" @upload-workshop-image="uploadWorkshopImage" @add-service="addService"
         @update-service="updateServicePrice" @remove-service="removeService" />
     </template>
   </div>

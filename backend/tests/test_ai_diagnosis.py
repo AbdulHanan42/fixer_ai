@@ -31,7 +31,7 @@ def test_analyze_matches_only_verified_mechanics_with_exact_service_category(
             target_service_category="Electrical",
         )
 
-    monkeypatch.setattr(ai_diagnosis, "OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(ai_diagnosis, "GEMINI_API_KEY", "test-key")
     monkeypatch.setattr(ai_diagnosis, "_analyze_image", fake_analyze_image)
 
     response = client.post(

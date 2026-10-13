@@ -13,6 +13,12 @@ export const mechanicService = {
     return http.put('/mechanics/profile', profile)
   },
 
+  uploadWorkshopImage(file) {
+    const body = new FormData()
+    body.append('image', file)
+    return http.put('/mechanics/profile/workshop-image', body)
+  },
+
   getServices() {
     return http.get('/mechanics/services')
   },
@@ -42,6 +48,10 @@ export const mechanicService = {
     if (city) params.city = city
     if (issue) params.issue = issue
     return http.get('/mechanics/directory', { params })
+  },
+
+  getPublicProfile(mechanicId) {
+    return http.get(`/mechanics/directory/${mechanicId}/profile`)
   },
 
   getMechanicReviews(id) {

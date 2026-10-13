@@ -6,6 +6,7 @@ import MechanicList from '@/components/customer/MechanicList.vue'
 import VehicleGarage from '@/components/customer/VehicleGarage.vue'
 import ChatBox from '@/components/chat/ChatBox.vue'
 import ReviewModal from '@/components/customer/ReviewModal.vue'
+import MechanicProfileModal from '@/components/customer/MechanicProfileModal.vue'
 import http from '@/api/http.js'
 import { useNotifications } from '@/composables/useNotifications.js'
 import { useLocation } from '@/composables/useLocation.js'
@@ -34,6 +35,10 @@ const aiDiagnosis = ref(null)
 const recentRequests = ref([])
 const activeChatRequestId = ref('')
 const reviewCandidate = ref(null)
+const selectedMechanic = ref(null)
+const mechanicProfile = ref(null)
+const mechanicProfileLoading = ref(false)
+const mechanicProfileError = ref('')
 const reviewedIds = new Set()
 const dismissedReviewIds = new Set()
 
@@ -138,6 +143,26 @@ async function requestRepair(mechanic) {
   } finally {
     busyMechanicId.value = ''
   }
+}
+
+async function viewMechanicProfile(mechanic) {
+  selectedMechanic.value = mechanic
+  mechanicProfile.value = null
+  mechanicProfileError.value = ''
+  mechanicProfileLoading.value = true
+  try {
+    mechanicProfile.value = await mechanicService.getPublicProfile(mechanic.id)
+  } catch (error) {
+    mechanicProfileError.value = error.message || 'Could not load this mechanic profile.'
+  } finally {
+    mechanicProfileLoading.value = false
+  }
+}
+
+function closeMechanicProfile() {
+  selectedMechanic.value = null
+  mechanicProfile.value = null
+  mechanicProfileError.value = ''
 }
 
 async function cancelRepair(request) {
@@ -275,7 +300,8 @@ onUnmounted(() => window.clearInterval(historyRefreshTimer))
 
         <MechanicList :location="location" :mechanics="mechanics" :loading="isSearching || isLocating" :searched="directorySearched" :city="cityQuery"
         :error="searchError" :busy-mechanic-id="busyMechanicId"
-        :can-request="description.trim().length >= 10" @request-repair="requestRepair" @retry="findNearbyMechanics" />
+        :can-request="description.trim().length >= 10" @request-repair="requestRepair" @retry="findNearbyMechanics"
+        @view-profile="viewMechanicProfile" />
     </div>
 
     <section v-if="recentRequests.length" class="space-y-4">
@@ -298,5 +324,7 @@ onUnmounted(() => window.clearInterval(historyRefreshTimer))
       <div v-if="activeChatRequestId" class="mt-5 max-w-2xl"><ChatBox :request-id="activeChatRequestId" /></div>
     </section>
     <ReviewModal v-if="reviewCandidate" :request="reviewCandidate" @close="dismissReview" @submitted="onReviewSubmitted" />
+    <MechanicProfileModal v-if="selectedMechanic" :mechanic="selectedMechanic" :profile="mechanicProfile"
+      :loading="mechanicProfileLoading" :error="mechanicProfileError" @close="closeMechanicProfile" />
   </div>
 </template>
