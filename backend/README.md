@@ -13,3 +13,9 @@ To grant admin access to an existing customer account, run this command from the
 Register the account first using the normal customer registration flow. Then sign out and sign back in so the browser refreshes the account role. Public registration cannot create admin accounts.
 
 For local development only, `python -m scripts.seed` creates the sample admin `admin@fixer.ai` with password `AdminPassword123!`. Do not use that sample password in a deployed environment.
+
+## AI diagnosis
+
+Set `OPENAI_API_KEY` in `backend/.env` to enable image diagnosis. The vision model defaults to `gpt-4o-mini`; override it with `OPENAI_VISION_MODEL` if needed. Apply database changes with `alembic upgrade head` from the `backend` directory.
+
+Authenticated customers can submit a multipart request to `POST /api/diagnosis/analyze` with `image` and `description` fields. The response includes possible issues, urgency, the exact matching service category, and verified mechanics offering that category. Distances are `null` because the analyze request does not include customer coordinates.

@@ -126,6 +126,10 @@ class AIDiagnosis(Base):
     possible_faults = mapped_column(JSONB)
     urgency: Mapped[str] = mapped_column(String)
     ai_summary: Mapped[str] = mapped_column(Text)
+    user_description = mapped_column(Text, nullable=True)
+    ai_analysis = mapped_column(JSONB, nullable=True)
+    recommended_service: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     repair_request = relationship("RepairRequest", back_populates="ai_diagnosis")
 
@@ -177,4 +181,4 @@ class Notification(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
-    user = relationship("User", back_populates="notifications")
+    user = relationship("User", back_populates="notifications")

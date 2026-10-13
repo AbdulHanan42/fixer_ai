@@ -35,6 +35,14 @@ const router = createRouter({
       ],
     },
     {
+      path: '/customer/diagnosis',
+      component: () => import('@/layouts/AppLayout.vue'),
+      meta: { requiresAuth: true, role: 'customer' },
+      children: [
+        { path: '', name: 'customer-ai-diagnosis', component: () => import('@/views/customer/AIDiagnosis.vue') },
+      ],
+    },
+    {
       path: '/mechanic/dashboard',
       component: () => import('@/layouts/AppLayout.vue'),
       meta: { requiresAuth: true, role: 'mechanic' },
