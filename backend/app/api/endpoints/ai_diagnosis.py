@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -18,6 +19,7 @@ from app.schemas.ai_diagnosis import (
 )
 
 router = APIRouter(prefix="/diagnosis", tags=["AI Diagnosis"])
+logger = logging.getLogger(__name__)
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
@@ -126,6 +128,11 @@ async def analyze_repair_issue(
     try:
         analysis = await _analyze_image(image_bytes, media_type, description, service_categories)
     except OpenAIError as exc:
+        logger.error(
+            "OpenAI diagnosis request failed (status=%s): %s",
+            getattr(exc, "status_code", "unknown"),
+            getattr(exc, "message", str(exc)),
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="The AI diagnosis provider is temporarily unavailable.",
