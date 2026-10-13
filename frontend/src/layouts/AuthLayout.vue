@@ -10,7 +10,7 @@
           <span class="text-lg font-bold tracking-tight">Fixer AI</span>
         </router-link>
         <div class="flex items-center gap-3 text-sm font-semibold sm:gap-5">
-          <router-link to="/" class="text-slate-600 hover:text-blue-700">Home</router-link>
+          <router-link to="/" class="hidden text-slate-600 hover:text-blue-700 sm:inline">Home</router-link>
           <router-link to="/login" class="text-slate-600 hover:text-blue-700">Sign in</router-link>
           <router-link to="/register" class="rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700">Create account</router-link>
         </div>
