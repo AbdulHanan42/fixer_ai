@@ -1,5 +1,6 @@
 from typing import Optional, List
 from pydantic import BaseModel, Field
+from app.schemas.service import MechanicServiceResponse
 
 
 class MechanicProfileCreate(BaseModel):
@@ -26,6 +27,7 @@ class MechanicProfileResponse(BaseModel):
     id: str
     user_id: str
     shop_name: str
+    workshop_image_url: Optional[str] = None
     address: str
     city: Optional[str] = None
     latitude: Optional[float] = None
@@ -42,3 +44,16 @@ class MechanicProfileResponse(BaseModel):
 class MechanicProfileWithServices(MechanicProfileResponse):
     """Schema for mechanic profile with services."""
     services: List[dict] = []
+
+
+class MechanicPublicProfileResponse(BaseModel):
+    """Public shop details and services shown to customers."""
+    id: str
+    shop_name: str
+    workshop_image_url: Optional[str] = None
+    address: str
+    city: Optional[str] = None
+    is_verified: bool
+    is_online: bool
+    average_rating: float
+    services: List[MechanicServiceResponse] = Field(default_factory=list)

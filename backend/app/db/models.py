@@ -65,6 +65,7 @@ class MechanicProfile(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     shop_name: Mapped[str] = mapped_column(String)
+    workshop_image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     location = mapped_column(Geography(geometry_type='POINT', srid=4326))
     address: Mapped[str] = mapped_column(String)
     city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)

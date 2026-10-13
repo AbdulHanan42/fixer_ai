@@ -148,6 +148,7 @@ class MechanicProfileService:
             id=str(profile.id),
             user_id=str(profile.user_id),
             shop_name=profile.shop_name,
+            workshop_image_url=profile.workshop_image_url,
             address=profile.address,
             city=profile.city,
             latitude=latitude,

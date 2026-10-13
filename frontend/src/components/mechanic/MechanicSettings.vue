@@ -2,6 +2,7 @@
 import { computed, reactive, watch } from 'vue'
 import PrimaryButton from '@/components/ui/PrimaryButton.vue'
 import { useLocation } from '@/composables/useLocation.js'
+import { API_ORIGIN } from '@/api/http.js'
 
 const props = defineProps({
   profile: { type: Object, default: null },
@@ -9,9 +10,10 @@ const props = defineProps({
   catalog: { type: Array, default: () => [] },
   savingProfile: { type: Boolean, default: false },
   savingService: { type: Boolean, default: false },
+  savingWorkshopImage: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['save-profile', 'add-service', 'update-service', 'remove-service'])
+const emit = defineEmits(['save-profile', 'upload-workshop-image', 'add-service', 'update-service', 'remove-service'])
 
 const form = reactive({ shop_name: '', address: '', city: '', latitude: '', longitude: '' })
 const selectedServiceId = defineModel('selectedServiceId', { type: String, default: '' })
@@ -55,6 +57,16 @@ function submitProfile() {
 
 function addService() {
   emit('add-service', { service_id: selectedServiceId.value, base_price: Number(newServicePrice.value) })
+}
+
+function selectWorkshopImage(event) {
+  const file = event.target.files?.[0]
+  if (file) emit('upload-workshop-image', file)
+  event.target.value = ''
+}
+
+function workshopImageUrl(path) {
+  return path ? new URL(path, API_ORIGIN).href : ''
 }
 </script>
 
@@ -101,6 +113,24 @@ function addService() {
         <span v-if="locationError" role="alert" class="text-sm text-red-700">{{ locationError }}</span>
       </div>
     </form>
+
+    <div class="mt-6 rounded-xl border border-slate-200 p-4">
+      <div class="flex flex-wrap items-center gap-4">
+        <img v-if="profile?.workshop_image_url" :src="workshopImageUrl(profile.workshop_image_url)" alt="Workshop preview"
+          class="h-20 w-32 rounded-lg object-cover" />
+        <div class="min-w-0 flex-1">
+          <h3 class="font-bold text-slate-900">Workshop photo</h3>
+          <p class="mt-1 text-sm text-slate-600">Customers see this photo behind your shop name on your profile.</p>
+        </div>
+        <label class="cursor-pointer rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
+          :class="{ 'pointer-events-none opacity-60': !profile || savingWorkshopImage }">
+          {{ savingWorkshopImage ? 'Uploading...' : profile?.workshop_image_url ? 'Change photo' : 'Upload photo' }}
+          <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" :disabled="!profile || savingWorkshopImage"
+            @change="selectWorkshopImage" />
+        </label>
+      </div>
+      <p class="mt-2 text-xs text-slate-500">JPEG, PNG, or WebP, up to 8 MB. Create your shop profile before uploading.</p>
+    </div>
 
     <div class="my-7 border-t border-slate-100"></div>
 

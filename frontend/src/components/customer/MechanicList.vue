@@ -15,7 +15,7 @@ const props = defineProps({
   canRequest: { type: Boolean, default: false },
 })
 
-defineEmits(['request-repair', 'retry'])
+defineEmits(['request-repair', 'retry', 'view-profile'])
 
 const nearbyMechanics = computed(() => {
   if (!props.location) return props.mechanics
@@ -104,12 +104,18 @@ const externalMapUrl = computed(() => props.location
           <span v-else>Distance unavailable</span>
           <span :class="mechanic.is_online ? 'text-emerald-700' : 'text-slate-500'">{{ mechanic.is_online ? 'Online' : 'Offline' }}</span>
         </div>
-        <div class="mt-5 border-t border-slate-100 pt-4">
+        <div class="mt-5 grid grid-cols-2 gap-2 border-t border-slate-100 pt-4">
+          <button type="button" class="min-h-11 rounded-lg border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100" @click="$emit('view-profile', mechanic)">
+            View profile
+          </button>
           <PrimaryButton class="w-full" :loading="busyMechanicId === mechanic.id"
             :disabled="!canRequest || !mechanic.is_verified || !mechanic.is_online || Boolean(busyMechanicId)" @click="$emit('request-repair', mechanic)">
-            {{ busyMechanicId === mechanic.id ? 'Sending request...' : !mechanic.is_verified ? 'Awaiting verification' : mechanic.is_online ? 'Request repair' : 'Currently offline' }}
+            {{ busyMechanicId === mechanic.id ? 'Sending request...' : !mechanic.is_verified ? 'Awaiting verification' : !mechanic.is_online ? 'Currently offline' : !canRequest ? 'Describe issue first' : 'Request repair' }}
           </PrimaryButton>
         </div>
+        <p v-if="mechanic.is_verified && mechanic.is_online && !canRequest" class="mt-2 text-xs text-slate-500">
+          Enter at least 10 characters in “What are you noticing?” to enable repair requests.
+        </p>
       </article>
     </div>
   </section>
