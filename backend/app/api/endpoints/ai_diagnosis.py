@@ -2,13 +2,14 @@ import base64
 import json
 import logging
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from openai import AsyncOpenAI, OpenAIError
+import httpx
 from pydantic import ValidationError
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.config import OPENAI_API_KEY, OPENAI_VISION_MODEL
+from app.core.config import GEMINI_API_BASE_URL, GEMINI_API_KEY, GEMINI_VISION_MODEL
 from app.db.models import MechanicProfile, MechanicService, Service, User
 from app.db.session import get_db
 from app.dependencies.auth import get_current_customer
@@ -30,10 +31,10 @@ async def _analyze_image(
     description: str,
     service_categories: list[str],
 ) -> DiagnosisAnalysis:
-    if not OPENAI_API_KEY:
+    if not GEMINI_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="AI diagnosis is not configured. Set OPENAI_API_KEY.",
+            detail="AI diagnosis is not configured. Set GEMINI_API_KEY.",
         )
 
     prompt = (
@@ -45,33 +46,67 @@ async def _analyze_image(
         f"Available service categories: {json.dumps(service_categories)}\n"
         f"Customer description: {description}"
     )
-    image_data_url = f"data:{media_type};base64,{base64.b64encode(image_bytes).decode('ascii')}"
-    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    model = quote(GEMINI_VISION_MODEL, safe="")
+    url = f"{GEMINI_API_BASE_URL.rstrip('/')}/models/{model}:generateContent"
+    payload = {
+        "systemInstruction": {
+            "parts": [
+                {
+                    "text": "You provide cautious automotive triage and follow the requested JSON format exactly."
+                }
+            ]
+        },
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": prompt},
+                    {
+                        "inline_data": {
+                            "mime_type": media_type,
+                            "data": base64.b64encode(image_bytes).decode("ascii"),
+                        }
+                    },
+                ],
+            }
+        ],
+        "generationConfig": {"responseMimeType": "application/json"},
+    }
     try:
-        response = await client.chat.completions.create(
-            model=OPENAI_VISION_MODEL,
-            response_format={"type": "json_object"},
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You provide cautious automotive triage and follow the requested JSON format exactly.",
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": image_data_url, "detail": "high"},
-                        },
-                    ],
-                },
-            ],
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            response = await client.post(
+                url,
+                headers={"x-goog-api-key": GEMINI_API_KEY},
+                json=payload,
+            )
+            response.raise_for_status()
+            result = response.json()
+    except httpx.HTTPStatusError as exc:
+        logger.error(
+            "Gemini diagnosis request failed (status=%s): %s",
+            exc.response.status_code,
+            exc.response.text[:1000],
         )
-    finally:
-        await client.close()
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI diagnosis provider is temporarily unavailable.",
+        ) from exc
+    except httpx.HTTPError as exc:
+        logger.error("Gemini diagnosis connection failed: %s", str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI diagnosis provider is temporarily unavailable.",
+        ) from exc
+    except ValueError as exc:
+        logger.error("Gemini diagnosis provider returned invalid JSON: %s", str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The AI diagnosis provider returned an invalid response.",
+        ) from exc
 
-    content = response.choices[0].message.content
+    candidates = result.get("candidates") or []
+    content_parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+    content = "".join(part.get("text", "") for part in content_parts)
     if not content:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -127,11 +162,12 @@ async def analyze_repair_issue(
 
     try:
         analysis = await _analyze_image(image_bytes, media_type, description, service_categories)
-    except OpenAIError as exc:
+    except HTTPException:
+        raise
+    except Exception as exc:
         logger.error(
-            "OpenAI diagnosis request failed (status=%s): %s",
-            getattr(exc, "status_code", "unknown"),
-            getattr(exc, "message", str(exc)),
+            "Gemini diagnosis analysis failed: %s",
+            str(exc),
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
