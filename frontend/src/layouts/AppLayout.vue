@@ -11,7 +11,10 @@ const links = computed(() => auth.isMechanic
   ? [{ label: 'Overview', to: '/mechanic/dashboard', icon: '▦' }]
   : auth.isAdmin
     ? [{ label: 'Overview', to: '/admin/dashboard', icon: '▦' }]
-    : [{ label: 'Find a mechanic', to: '/customer/dashboard', icon: '⌖' }])
+    : [
+        { label: 'Find a mechanic', to: '/customer/dashboard', icon: '⌖' },
+        { label: 'AI diagnosis', to: '/customer/diagnosis', icon: '✦' },
+      ])
 const userName = computed(() => auth.user?.full_name || auth.user?.email || 'Your account')
 const roleLabel = computed(() => auth.user?.role ? `${auth.user.role[0].toUpperCase()}${auth.user.role.slice(1)} account` : 'Fixer AI member')
 

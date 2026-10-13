@@ -9,3 +9,5 @@ sqlalchemy
 psycopg[binary]
 alembic
 geoalchemy2
+python-multipart
+openai
