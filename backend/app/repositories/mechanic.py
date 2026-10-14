@@ -161,14 +161,19 @@ class ServiceRepository:
         return db.query(Service).filter(Service.id == service_id).first()
 
     @staticmethod
-    def get_by_name(db: Session, name: str) -> Optional[Service]:
-        """Get a service by name."""
-        return db.query(Service).filter(Service.name == name).first()
+    def get_by_name(db: Session, name: str, owner_mechanic_id: str | None = None) -> Optional[Service]:
+        """Get a catalog service or a service owned by one mechanic."""
+        query = db.query(Service).filter(Service.name == name)
+        if owner_mechanic_id is None:
+            query = query.filter(Service.owner_mechanic_id.is_(None))
+        else:
+            query = query.filter(Service.owner_mechanic_id == owner_mechanic_id)
+        return query.first()
 
     @staticmethod
     def get_all(db: Session, category: Optional[str] = None) -> List[Service]:
         """Get all services, optionally filtered by category."""
-        query = db.query(Service)
+        query = db.query(Service).filter(Service.owner_mechanic_id.is_(None))
         if category:
             query = query.filter(Service.category == category)
         return query.all()

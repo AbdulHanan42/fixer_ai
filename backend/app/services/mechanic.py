@@ -23,6 +23,7 @@ from app.schemas.service import (
     MechanicServiceCreate,
     MechanicServiceUpdate,
     MechanicServiceResponse,
+    CustomMechanicServiceCreate,
 )
 
 
@@ -223,6 +224,25 @@ class ServiceCatalogService:
 
 class MechanicServiceService:
     """Service for mechanic-service relationship business logic."""
+
+    @staticmethod
+    def add_custom_service(db: Session, mechanic_id: str, service_data: CustomMechanicServiceCreate) -> MechanicServiceResponse:
+        name = service_data.name.strip()
+        category = service_data.category.strip()
+        if ServiceRepository.get_by_name(db, name, mechanic_id):
+            raise ValueError("A service with this name already exists; choose another name")
+        service = Service(name=name, category=category, owner_mechanic_id=mechanic_id)
+        db.add(service)
+        db.flush()
+        mechanic_service = MechanicService(mechanic_id=mechanic_id, service_id=service.id, base_price=service_data.base_price)
+        db.add(mechanic_service)
+        try:
+            db.commit()
+            db.refresh(mechanic_service)
+        except Exception:
+            db.rollback()
+            raise
+        return MechanicServiceService._to_response(mechanic_service, service)
 
     @staticmethod
     def add_service(

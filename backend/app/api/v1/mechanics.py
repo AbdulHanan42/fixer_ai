@@ -22,6 +22,7 @@ from app.schemas.service import (
     MechanicServiceCreate,
     MechanicServiceUpdate,
     MechanicServiceResponse,
+    CustomMechanicServiceCreate,
 )
 from app.services.mechanic import (
     MechanicProfileService,
@@ -211,6 +212,22 @@ async def get_all_mechanics(
 
 
 # Mechanic Services Endpoints (for mechanics)
+@router.post("/services/custom", response_model=MechanicServiceResponse, status_code=status.HTTP_201_CREATED)
+async def add_custom_mechanic_service(
+    service_data: CustomMechanicServiceCreate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_mechanic)],
+):
+    """Create a service visible only on this mechanic's profile."""
+    profile = MechanicRepository.get_by_user_id(db, str(current_user.id))
+    if not profile:
+        raise HTTPException(status_code=404, detail="Mechanic profile not found")
+    try:
+        return MechanicServiceService.add_custom_service(db, str(profile.id), service_data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/services", response_model=MechanicServiceResponse, status_code=status.HTTP_201_CREATED)
 async def add_mechanic_service(
     service_data: MechanicServiceCreate,

@@ -30,6 +30,12 @@ class MechanicServiceCreate(BaseModel):
     base_price: float = Field(..., gt=0)
 
 
+class CustomMechanicServiceCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100)
+    category: str = Field(..., min_length=2, max_length=50)
+    base_price: float = Field(..., gt=0)
+
+
 class MechanicServiceUpdate(BaseModel):
     """Schema for updating a mechanic's service price."""
     base_price: float = Field(..., gt=0)

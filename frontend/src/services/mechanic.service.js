@@ -31,6 +31,10 @@ export const mechanicService = {
     return http.post('/mechanics/services', service)
   },
 
+  addCustomService(service) {
+    return http.post('/mechanics/services/custom', service)
+  },
+
   updateServicePrice(id, basePrice) {
     return http.put(`/mechanics/services/${id}`, { base_price: basePrice })
   },
