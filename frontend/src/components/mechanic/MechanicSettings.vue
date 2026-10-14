@@ -13,11 +13,12 @@ const props = defineProps({
   savingWorkshopImage: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['save-profile', 'upload-workshop-image', 'add-service', 'update-service', 'remove-service'])
+const emit = defineEmits(['save-profile', 'upload-workshop-image', 'add-service', 'add-custom-service', 'update-service', 'remove-service'])
 
 const form = reactive({ shop_name: '', address: '', city: '', latitude: '', longitude: '' })
 const selectedServiceId = defineModel('selectedServiceId', { type: String, default: '' })
 const newServicePrice = defineModel('newServicePrice', { type: String, default: '' })
+const customService = reactive({ name: '', category: '', base_price: '' })
 const servicePrices = reactive({})
 const { location, error: locationError, isLoading: isLocating, getCurrentLocation } = useLocation()
 
@@ -57,6 +58,10 @@ function submitProfile() {
 
 function addService() {
   emit('add-service', { service_id: selectedServiceId.value, base_price: Number(newServicePrice.value) })
+}
+
+function addCustomService() {
+  emit('add-custom-service', { name: customService.name.trim(), category: customService.category.trim(), base_price: Number(customService.base_price) })
 }
 
 function selectWorkshopImage(event) {
@@ -154,6 +159,13 @@ function workshopImageUrl(path) {
             class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100" />
         </div>
         <PrimaryButton type="submit" :loading="savingService" :disabled="!profile || !availableCatalog.length">Add service</PrimaryButton>
+      </form>
+
+      <form class="mt-3 grid gap-3 rounded-xl border border-blue-100 bg-blue-50/50 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem_auto]" @submit.prevent="addCustomService">
+        <input v-model.trim="customService.name" aria-label="Custom service name" required minlength="2" maxlength="100" placeholder="Write a custom service" :disabled="!profile || savingService" class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100" />
+        <input v-model.trim="customService.category" aria-label="Service category" required minlength="2" maxlength="50" placeholder="Category" :disabled="!profile || savingService" class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100" />
+        <input v-model="customService.base_price" aria-label="Base price" type="number" min="0.01" step="0.01" required placeholder="Base price" :disabled="!profile || savingService" class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-100" />
+        <PrimaryButton type="submit" :loading="savingService" :disabled="!profile">Add custom</PrimaryButton>
       </form>
 
       <p v-if="!profile" class="mt-2 text-xs text-slate-500">Create your shop profile before adding services.</p>

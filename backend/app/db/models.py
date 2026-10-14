@@ -82,10 +82,12 @@ class Service(Base):
     __tablename__ = "services"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String, unique=True)
+    name: Mapped[str] = mapped_column(String)
     category: Mapped[str] = mapped_column(String)
+    owner_mechanic_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("mechanic_profiles.id", ondelete="CASCADE"), nullable=True)
 
     mechanic_services = relationship("MechanicService", back_populates="service", cascade="all, delete-orphan")
+    owner_mechanic = relationship("MechanicProfile")
 
 class MechanicService(Base):
     __tablename__ = "mechanic_services"

@@ -195,6 +195,23 @@ async function addService(service) {
   }
 }
 
+async function addCustomService(service) {
+  if (!Number.isFinite(service.base_price) || service.base_price <= 0) {
+    showError('Enter a price greater than zero.')
+    return
+  }
+  isSavingService.value = true
+  try {
+    const created = await mechanicService.addCustomService(service)
+    mechanicServices.value = [...mechanicServices.value, created]
+    showSuccess('Custom service added to your profile.')
+  } catch (error) {
+    showError(error.message || 'Could not add this custom service.')
+  } finally {
+    isSavingService.value = false
+  }
+}
+
 async function updateServicePrice(id, price) {
   if (!Number.isFinite(price) || price <= 0) {
     showError('Enter a price greater than zero.')
@@ -294,7 +311,7 @@ onUnmounted(() => window.clearInterval(queueRefreshTimer))
         :saving-profile="isSavingProfile" :saving-service="isSavingService"
         :saving-workshop-image="isSavingWorkshopImage"
         v-model:selected-service-id="selectedServiceId" v-model:new-service-price="newServicePrice"
-        @save-profile="saveProfile" @upload-workshop-image="uploadWorkshopImage" @add-service="addService"
+        @save-profile="saveProfile" @upload-workshop-image="uploadWorkshopImage" @add-service="addService" @add-custom-service="addCustomService"
         @update-service="updateServicePrice" @remove-service="removeService" />
     </template>
   </div>
