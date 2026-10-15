@@ -95,7 +95,7 @@ async def _analyze_image(
         logger.error("Gemini diagnosis connection failed: %s", str(exc))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The AI diagnosis provide is temporarily unavailable.",
+            detail="The AI diagnosis provider is temporarily unavailable.",
         ) from exc
     except ValueError as exc:
         logger.error("Gemini diagnosis provider returned invalid JSON: %s", str(exc))
