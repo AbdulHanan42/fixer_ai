@@ -1,7 +1,7 @@
 import uuid
 import enum
 from typing import Optional
-from sqlalchemy import String, Boolean, ForeignKey, Float, Text, Enum as SQLEnum, Integer, DateTime
+from sqlalchemy import String, Boolean, ForeignKey, Float, Text, Enum as SQLEnum, Integer, DateTime, false
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -65,9 +65,12 @@ class MechanicProfile(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     shop_name: Mapped[str] = mapped_column(String)
+    workshop_image_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     location = mapped_column(Geography(geometry_type='POINT', srid=4326))
     address: Mapped[str] = mapped_column(String)
+    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_online: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     average_rating: Mapped[float] = mapped_column(Float, default=0.0)
 
     user = relationship("User", back_populates="mechanic_profile")
@@ -79,10 +82,12 @@ class Service(Base):
     __tablename__ = "services"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String, unique=True)
+    name: Mapped[str] = mapped_column(String)
     category: Mapped[str] = mapped_column(String)
+    owner_mechanic_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("mechanic_profiles.id", ondelete="CASCADE"), nullable=True)
 
     mechanic_services = relationship("MechanicService", back_populates="service", cascade="all, delete-orphan")
+    owner_mechanic = relationship("MechanicProfile")
 
 class MechanicService(Base):
     __tablename__ = "mechanic_services"
@@ -124,6 +129,10 @@ class AIDiagnosis(Base):
     possible_faults = mapped_column(JSONB)
     urgency: Mapped[str] = mapped_column(String)
     ai_summary: Mapped[str] = mapped_column(Text)
+    user_description = mapped_column(Text, nullable=True)
+    ai_analysis = mapped_column(JSONB, nullable=True)
+    recommended_service: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     repair_request = relationship("RepairRequest", back_populates="ai_diagnosis")
 
@@ -175,4 +184,4 @@ class Notification(Base):
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
-    user = relationship("User", back_populates="notifications")
+    user = relationship("User", back_populates="notifications")

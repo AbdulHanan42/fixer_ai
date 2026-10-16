@@ -1,23 +1,15 @@
-import api from './api.js'
+import http from '@/api/http.js'
 
 export const authService = {
   async login(credentials) {
-    return api.post('/auth/login', credentials)
+    return http.post('/auth/login', credentials)
   },
 
   async register(userData) {
-    return api.post('/auth/register', userData)
-  },
-
-  async logout() {
-    return api.post('/auth/logout')
+    return http.post('/auth/register', userData)
   },
 
   async getCurrentUser() {
-    return api.get('/auth/me')
-  },
-
-  async refreshToken() {
-    return api.post('/auth/refresh')
+    return http.get('/auth/me')
   },
 }

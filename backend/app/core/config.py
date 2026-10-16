@@ -18,4 +18,9 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 # Database
-DATABASE_URL = os.getenv("Database_URL")
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("Database_URL")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_BASE_URL = os.getenv(
+    "GEMINI_API_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
+)
+GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-3.8-flash")

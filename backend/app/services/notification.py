@@ -121,7 +121,11 @@ class NotificationService:
         mechanics = []
         try:
             # Query all mechanic profiles to notify
-            mechanics = MechanicRepository.get_all(db, skip=0, limit=20)
+            mechanics = [
+                mechanic
+                for mechanic in MechanicRepository.get_all(db, skip=0, limit=100)
+                if mechanic.is_online
+            ]
         except Exception:
             pass
 

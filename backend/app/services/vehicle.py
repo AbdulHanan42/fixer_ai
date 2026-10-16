@@ -33,7 +33,7 @@ class VehicleService:
         vehicle = VehicleRepository.get_by_id(db, vehicle_id)
         if not vehicle:
             raise ValueError("Vehicle not found")
-        if vehicle.customer_id != customer_id:
+        if str(vehicle.customer_id) != str(customer_id):
             raise ValueError("Access denied")
         return VehicleService._to_response(vehicle)
 
@@ -45,7 +45,7 @@ class VehicleService:
         vehicle = VehicleRepository.get_by_id(db, vehicle_id)
         if not vehicle:
             raise ValueError("Vehicle not found")
-        if vehicle.customer_id != customer_id:
+        if str(vehicle.customer_id) != str(customer_id):
             raise ValueError("Access denied")
 
         # Update fields if provided
@@ -65,7 +65,7 @@ class VehicleService:
         vehicle = VehicleRepository.get_by_id(db, vehicle_id)
         if not vehicle:
             raise ValueError("Vehicle not found")
-        if vehicle.customer_id != customer_id:
+        if str(vehicle.customer_id) != str(customer_id):
             raise ValueError("Access denied")
         VehicleRepository.delete(db, vehicle)
 

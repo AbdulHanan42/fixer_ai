@@ -1,23 +1,64 @@
-import api from './api.js'
+import http from '@/api/http.js'
 
 export const mechanicService = {
-  async searchMechanics(params) {
-    return api.get('/mechanics', { params })
+  getProfile() {
+    return http.get('/mechanics/profile')
   },
 
-  async getMechanicById(id) {
-    return api.get(`/mechanics/${id}`)
+  createProfile(profile) {
+    return http.post('/mechanics/profile', profile)
   },
 
-  async getMechanicReviews(id) {
-    return api.get(`/mechanics/${id}/reviews`)
+  updateProfile(profile) {
+    return http.put('/mechanics/profile', profile)
   },
 
-  async submitReview(id, reviewData) {
-    return api.post(`/mechanics/${id}/reviews`, reviewData)
+  uploadWorkshopImage(file) {
+    const body = new FormData()
+    body.append('image', file)
+    return http.put('/mechanics/profile/workshop-image', body)
   },
 
-  async sendRepairRequest(mechanicId, requestData) {
-    return api.post(`/mechanics/${mechanicId}/requests`, requestData)
+  getServices() {
+    return http.get('/mechanics/services')
+  },
+
+  getServiceCatalog() {
+    return http.get('/mechanics/catalog')
+  },
+
+  addService(service) {
+    return http.post('/mechanics/services', service)
+  },
+
+  addCustomService(service) {
+    return http.post('/mechanics/services/custom', service)
+  },
+
+  updateServicePrice(id, basePrice) {
+    return http.put(`/mechanics/services/${id}`, { base_price: basePrice })
+  },
+
+  removeService(id) {
+    return http.delete(`/mechanics/services/${id}`)
+  },
+
+  searchMechanics(params) {
+    return http.get('/mechanics/search', { params })
+  },
+
+  searchDirectory(city, issue = '') {
+    const params = {}
+    if (city) params.city = city
+    if (issue) params.issue = issue
+    return http.get('/mechanics/directory', { params })
+  },
+
+  getPublicProfile(mechanicId) {
+    return http.get(`/mechanics/directory/${mechanicId}/profile`)
+  },
+
+  getMechanicReviews(id) {
+    return http.get(`/reviews/mechanic/${id}`)
   },
 }

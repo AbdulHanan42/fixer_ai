@@ -1,6 +1,8 @@
 from typing import List, Optional
+from geoalchemy2 import Geometry
 from sqlalchemy.orm import Session
 from geoalchemy2.elements import WKTElement
+from sqlalchemy import cast, func
 
 from app.db.models import RepairRequest, AIDiagnosis, RequestImage, RequestStatus
 from app.repositories.repair import (
@@ -8,6 +10,8 @@ from app.repositories.repair import (
     AIDiagnosisRepository,
     RequestImageRepository,
 )
+from app.repositories.mechanic import MechanicRepository
+from app.repositories.vehicle import VehicleRepository
 from app.schemas.repair import (
     RepairRequestCreate,
     RepairRequestUpdate,
@@ -27,15 +31,33 @@ class RepairRequestService:
         db: Session, customer_id: str, request_data: RepairRequestCreate
     ) -> RepairRequestResponse:
         """Create a new repair request."""
+        if (request_data.latitude is None) != (request_data.longitude is None):
+            raise ValueError("Latitude and longitude must be provided together")
+        if request_data.vehicle_id:
+            vehicle = VehicleRepository.get_by_id(db, request_data.vehicle_id)
+            if not vehicle or str(vehicle.customer_id) != str(customer_id):
+                raise ValueError("Selected vehicle was not found for this customer")
+
+        mechanic_id = request_data.mechanic_id
+        if mechanic_id:
+            mechanic = MechanicRepository.get_by_id(db, mechanic_id)
+            if not mechanic:
+                raise ValueError("Mechanic profile not found")
+            if not mechanic.is_online:
+                raise ValueError("Selected mechanic is currently offline")
+
         # Create location point from lat/lon
-        location = WKTElement(
-            f"POINT({request_data.longitude} {request_data.latitude})",
-            srid=4326,
-        )
+        location = None
+        if request_data.latitude is not None and request_data.longitude is not None:
+            location = WKTElement(
+                f"POINT({request_data.longitude} {request_data.latitude})",
+                srid=4326,
+            )
 
         request = RepairRequest(
             customer_id=customer_id,
             vehicle_id=request_data.vehicle_id,
+            mechanic_id=mechanic_id,
             description=request_data.description,
             customer_location=location,
             status=RequestStatus.pending,
@@ -43,19 +65,19 @@ class RepairRequestService:
 
         created_request = RepairRequestRepository.create(db, request)
         NotificationService.notify_new_repair_request(db, created_request)
-        return RepairRequestService._to_response(created_request)
+        return RepairRequestService._to_response(db, created_request)
 
     @staticmethod
     def get_customer_requests(db: Session, customer_id: str) -> List[RepairRequestResponse]:
         """Get all repair requests for a customer."""
         requests = RepairRequestRepository.get_by_customer(db, customer_id)
-        return [RepairRequestService._to_response(r) for r in requests]
+        return [RepairRequestService._to_response(db, r) for r in requests]
 
     @staticmethod
     def get_mechanic_requests(db: Session, mechanic_id: str) -> List[RepairRequestResponse]:
         """Get all repair requests assigned to a mechanic."""
         requests = RepairRequestRepository.get_by_mechanic(db, mechanic_id)
-        return [RepairRequestService._to_response(r) for r in requests]
+        return [RepairRequestService._to_response(db, r) for r in requests]
 
     @staticmethod
     def get_request(db: Session, request_id: str) -> RepairRequestWithDetails:
@@ -81,13 +103,24 @@ class RepairRequestService:
         if request.status == RequestStatus.cancelled:
             raise ValueError("Cannot update a cancelled request")
 
+        if request.mechanic_id and str(request.mechanic_id) != str(mechanic_id):
+            raise ValueError("Request already assigned to another mechanic")
+
         old_status = request.status
 
-        # If assigning to mechanic
         if status_data.status == RequestStatus.accepted:
-            if request.mechanic_id and request.mechanic_id != mechanic_id:
-                raise ValueError("Request already assigned to another mechanic")
+            if request.status != RequestStatus.pending:
+                raise ValueError("Cannot accept a request that is not pending")
             request.mechanic_id = mechanic_id
+        elif status_data.status == RequestStatus.cancelled:
+            if request.status != RequestStatus.pending:
+                raise ValueError("Cannot reject a request that is not pending")
+            request.mechanic_id = mechanic_id
+        elif status_data.status == RequestStatus.completed:
+            if request.status != RequestStatus.accepted:
+                raise ValueError("Only accepted requests can be completed")
+        else:
+            raise ValueError("Mechanics cannot move a request back to pending")
 
         request.status = status_data.status
         updated_request = RepairRequestRepository.update(db, request)
@@ -113,7 +146,7 @@ class RepairRequestService:
             )
             NotificationService.notify_status_changed(db, updated_request, old_val, new_val)
 
-        return RepairRequestService._to_response(updated_request)
+        return RepairRequestService._to_response(db, updated_request)
 
     @staticmethod
     def cancel_request(db: Session, request_id: str, customer_id: str) -> RepairRequestResponse:
@@ -121,7 +154,7 @@ class RepairRequestService:
         request = RepairRequestRepository.get_by_id(db, request_id)
         if not request:
             raise ValueError("Repair request not found")
-        if request.customer_id != customer_id:
+        if str(request.customer_id) != str(customer_id):
             raise ValueError("Access denied")
         if request.status == RequestStatus.completed:
             raise ValueError("Cannot cancel a completed request")
@@ -129,39 +162,30 @@ class RepairRequestService:
         request.status = RequestStatus.cancelled
         updated_request = RepairRequestRepository.update(db, request)
         NotificationService.notify_request_rejected(db, updated_request)
-        return RepairRequestService._to_response(updated_request)
+        return RepairRequestService._to_response(db, updated_request)
 
     @staticmethod
     def get_pending_requests(db: Session) -> List[RepairRequestResponse]:
         """Get all pending repair requests (for mechanics to browse)."""
         requests = RepairRequestRepository.get_pending_requests(db)
-        return [RepairRequestService._to_response(r) for r in requests]
+        return [RepairRequestService._to_response(db, r) for r in requests]
 
     @staticmethod
-    def _to_response(request: RepairRequest) -> RepairRequestResponse:
+    def _to_response(db: Session, request: RepairRequest) -> RepairRequestResponse:
         """Convert RepairRequest model to response schema."""
         # Extract lat/lon from location if available
         latitude = None
         longitude = None
         if request.customer_location:
             try:
-                from sqlalchemy import func
-                from app.db.session import SessionLocal
-                db = SessionLocal()
-                try:
-                    result = (
-                        db.query(
-                            func.ST_Y(request.customer_location).label("lat"),
-                            func.ST_X(request.customer_location).label("lon"),
-                        )
-                        .filter(RepairRequest.id == request.id)
-                        .first()
-                    )
-                    if result:
-                        latitude = float(result.lat) if result.lat else None
-                        longitude = float(result.lon) if result.lon else None
-                finally:
-                    db.close()
+                point = cast(RepairRequest.customer_location, Geometry(srid=4326))
+                result = db.query(
+                    func.ST_Y(point).label("lat"),
+                    func.ST_X(point).label("lon"),
+                ).filter(RepairRequest.id == request.id).first()
+                if result and result.lat is not None and result.lon is not None:
+                    latitude = float(result.lat)
+                    longitude = float(result.lon)
             except Exception:
                 pass
 
@@ -181,7 +205,7 @@ class RepairRequestService:
     @staticmethod
     def _to_detailed_response(db: Session, request: RepairRequest) -> RepairRequestWithDetails:
         """Convert RepairRequest model to detailed response schema."""
-        base_response = RepairRequestService._to_response(request)
+        base_response = RepairRequestService._to_response(db, request)
 
         # Get vehicle info if available
         vehicle_info = None
