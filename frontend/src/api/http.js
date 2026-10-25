@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '')
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://fixer-ai.onrender.com/api/v1').replace(/\/$/, '')
 export const API_ORIGIN = new URL(API_BASE_URL, window.location.origin).origin
 const TOKEN_KEY = 'fix-ai-token'
 
