@@ -24,7 +24,10 @@ async function request(path, options = {}) {
   if (response.status === 401) {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem('fix-ai-user')
-    window.location.assign('/login')
+    // A failed login must stay on the page so the error can be shown.
+    if (path !== '/auth/login' && window.location.pathname !== '/login') {
+      window.location.assign('/login')
+    }
   }
 
   const contentType = response.headers.get('content-type') || ''
@@ -35,7 +38,10 @@ async function request(path, options = {}) {
       : await response.text()
 
   if (!response.ok) {
-    const message = typeof data === 'string' ? data : data?.detail || `Request failed (${response.status})`
+    const detail = data && typeof data === 'object' ? data.detail : null
+    const message = detail || (response.status >= 500
+      ? 'The server could not complete the request. Please try again in a moment.'
+      : `Request failed (${response.status})`)
     const error = new Error(typeof message === 'string' ? message : JSON.stringify(message))
     error.status = response.status
     error.data = data
