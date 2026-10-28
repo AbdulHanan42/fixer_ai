@@ -10,7 +10,7 @@ import { vehicleService } from '@/services/vehicle.service.js'
 const router = useRouter()
 const auth = useAuthStore()
 const { showError, showSuccess } = useNotifications()
-const apiBase = new URL(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1', window.location.origin)
+const apiBase = new URL(import.meta.env.VITE_API_BASE_URL || 'https://fixer-ai.onrender.com/api/v1', window.location.origin)
 const diagnosisUrl = new URL('/api/diagnosis/analyze', apiBase.origin)
 const description = ref('')
 const selectedFile = ref(null)
