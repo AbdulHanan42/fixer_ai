@@ -1,1 +1,171 @@
 @import "tailwindcss";
+
+:root {
+  --bg-sidebar: #2C2A35;
+  --bg-main: #FDFBF7;
+  --bg-card: #FFFFFF;
+  --bg-header-card: #363440;
+
+  --color-primary: #E76F51;
+  --color-primary-hover: #D85A3A;
+  --color-secondary: #F4A261;
+
+  --text-main: #3E2723;
+  --text-muted: #8D6E63;
+  --text-sidebar: #F8F9FA;
+
+  --border-subtle: #EFEBE9;
+  --success-light: #FFCCBC;
+  --success-dark: #D84315;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    background: var(--bg-main);
+  }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at top left, rgba(244, 162, 97, 0.18), transparent 26%),
+      radial-gradient(circle at bottom right, rgba(231, 111, 81, 0.12), transparent 32%),
+      linear-gradient(180deg, #fffdfb 0%, #f7efe8 100%);
+    color: var(--text-main);
+    font-family: Inter, "Segoe UI", sans-serif;
+  }
+
+  #app {
+    min-height: 100vh;
+  }
+
+  * {
+    border-color: var(--border-subtle);
+  }
+
+  ::selection {
+    background: rgba(231, 111, 81, 0.16);
+  }
+}
+
+@layer utilities {
+  .bg-primary {
+    background-color: var(--color-primary) !important;
+  }
+
+  .bg-secondary {
+    background-color: var(--color-secondary) !important;
+  }
+
+  .bg-sidebar {
+    background-color: var(--bg-sidebar) !important;
+  }
+
+  .bg-main {
+    background-color: var(--bg-main) !important;
+  }
+
+  .bg-card {
+    background-color: var(--bg-card) !important;
+  }
+
+  .text-main {
+    color: var(--text-main) !important;
+  }
+
+  .text-muted {
+    color: var(--text-muted) !important;
+  }
+
+  .text-sidebar {
+    color: var(--text-sidebar) !important;
+  }
+
+  .border-subtle {
+    border-color: var(--border-subtle) !important;
+  }
+}
+
+[class*="bg-slate-"] {
+  background-color: var(--bg-main) !important;
+}
+
+[class*="bg-slate-950"],
+[class*="bg-slate-900"],
+[class*="bg-slate-800"],
+[class*="bg-slate-700"] {
+  background-color: var(--bg-sidebar) !important;
+}
+
+[class*="bg-slate-50"],
+[class*="bg-slate-100"],
+[class*="bg-slate-200"] {
+  background-color: var(--bg-main) !important;
+}
+
+[class*="bg-blue-"] {
+  background-color: var(--color-primary) !important;
+}
+
+[class*="bg-cyan-"],
+[class*="bg-indigo-"] {
+  background-color: var(--color-secondary) !important;
+}
+
+[class*="text-slate-"],
+[class*="text-gray-"] {
+  color: var(--text-muted) !important;
+}
+
+[class*="text-slate-900"],
+[class*="text-slate-800"],
+[class*="text-gray-900"],
+[class*="text-gray-950"] {
+  color: var(--text-main) !important;
+}
+
+[class*="text-blue-"] {
+  color: var(--color-primary) !important;
+}
+
+[class*="text-cyan-"],
+[class*="text-indigo-"] {
+  color: var(--color-secondary) !important;
+}
+
+[class*="border-slate-"],
+[class*="border-gray-"] {
+  border-color: var(--border-subtle) !important;
+}
+
+[class*="border-blue-"],
+[class*="border-indigo-"] {
+  border-color: rgba(231, 111, 81, 0.28) !important;
+}
+
+[class*="border-cyan-"] {
+  border-color: rgba(244, 162, 97, 0.28) !important;
+}
+
+[class*="from-blue-"] {
+  --tw-gradient-from: var(--color-primary) !important;
+}
+
+[class*="to-blue-"] {
+  --tw-gradient-to: var(--color-primary) !important;
+}
+
+[class*="from-cyan-"],
+[class*="from-indigo-"] {
+  --tw-gradient-from: var(--color-secondary) !important;
+}
+
+[class*="to-cyan-"],
+[class*="to-indigo-"] {
+  --tw-gradient-to: var(--color-secondary) !important;
+}
+
+
