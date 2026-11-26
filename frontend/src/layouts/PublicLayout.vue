@@ -6,7 +6,7 @@
     <header class="sticky top-0 z-40 border-b border-white/10 bg-slate-950/85 backdrop-blur-xl">
       <nav class="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8" aria-label="Public navigation">
         <router-link to="/" class="group flex items-center gap-3" aria-label="Fixer AI home">
-          <span class="grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-cyan-300 to-blue-600 text-lg font-black text-slate-950 shadow-lg shadow-blue-500/20 transition duration-300 group-hover:rotate-6 group-hover:scale-105">F</span>
+          <span class="grid size-10 place-items-center rounded-2xl bg-primary text-lg font-black text-white shadow-lg shadow-blue-500/20 transition duration-300 group-hover:rotate-6 group-hover:scale-105">F</span>
           <span class="text-lg font-bold tracking-tight">Fixer <span class="text-blue-300">AI</span></span>
         </router-link>
         <div class="flex items-center gap-3 text-sm font-semibold sm:gap-6">
